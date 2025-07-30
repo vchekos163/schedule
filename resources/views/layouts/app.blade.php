@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ config('app.name', 'Laravel') }}</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -13,6 +14,7 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @filamentStyles
 </head>
 <body class="font-sans antialiased">
 <div class="min-h-screen bg-gray-100">
@@ -32,5 +34,7 @@
         @yield('content')
     </main>
 </div>
+@vite('resources/js/app.js')
+@filamentScripts
 </body>
 </html>

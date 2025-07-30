@@ -6,7 +6,7 @@
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
                     <a href="{{ url('/index') }}">
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
+                        <x-application-logo class="block h-16 w-auto fill-current text-gray-800" />
                     </a>
                 </div>
 
@@ -19,7 +19,16 @@
                 @auth
                     @if(auth()->user()->hasRole('admin'))
                         <x-nav-link :href="url('/admin/users')" :active="request()->is('admin/users*')">
-                            {{ __('All users') }}
+                            {{ __('Users') }}
+                        </x-nav-link>
+                        <x-nav-link :href="url('/admin/teachers')" :active="request()->is('admin/teachers*')">
+                            {{ __('Teachers') }}
+                        </x-nav-link>
+                        <x-nav-link :href="url('/admin/students')" :active="request()->is('admin/students*')">
+                            {{ __('Students') }}
+                        </x-nav-link>
+                        <x-nav-link :href="url('/admin/rooms')" :active="request()->is('admin/rooms*')">
+                            {{ __('Rooms') }}
                         </x-nav-link>
                     @endif
                 @endauth
@@ -30,34 +39,25 @@
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         @auth
-                            <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
-                                <div>{{ Auth::user()->name }}</div>
-                                <div class="ms-1">
-                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                    </svg>
-                                </div>
-                            </button>
-                        @else
+                            <div class="flex items-center space-x-3">
+                                <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
+                                    <div>{{ Auth::user()->name }}</div>
+                                    <div class="ms-1">
+                                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </button>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit" class="text-sm text-gray-500 hover:text-red-600">
+                                        {{ __('Выйти') }}
+                                    </button>
+                                </form>
+                            </div>                        @else
                             <a href="{{ route('login') }}" class="text-blue-500 underline">Войти</a>
                         @endauth
                     </x-slot>
-
-                    @auth
-                        <x-slot name="content">
-                            <x-dropdown-link :href="url('/profile')">
-                                {{ __('Profile') }}
-                            </x-dropdown-link>
-
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <x-dropdown-link href="{{ route('logout') }}"
-                                                 onclick="event.preventDefault(); this.closest('form').submit();">
-                                    {{ __('Выйти') }}
-                                </x-dropdown-link>
-                            </form>
-                        </x-slot>
-                    @endauth
                 </x-dropdown>
             </div>
 

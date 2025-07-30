@@ -4,69 +4,32 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Spatie\Permission\Models\Role;
 
 class UsersController extends Controller
 {
-    public function __construct()
-    {
-        // Protect all methods with auth and 'admin' role
-        $this->middleware(['auth', 'role:admin']);
-    }
-
-    /**
-     * Display all users
-     */
     public function index()
     {
-        $users = User::with('roles')->get();
-
-        return view('admin.users.index', compact('users'));
+        return view('admin.users.index');
     }
 
-    /**
-     * Show individual user profile
-     */
-    public function show($id)
+    public function create()
     {
-        $user = User::with('roles')->findOrFail($id);
-
-        return view('admin.users.show', compact('user'));
+        return view('admin.users.edit');
     }
 
-    /**
-     * Handle mass actions like delete or assign role
-     */
-    public function massAction(Request $request)
+    public function edit($user_id)
     {
-        $request->validate([
-            'selected_users' => 'required|array',
-        ]);
+        $user = User::findOrFail($user_id);
 
-        $action = $request->input('action');
-        $users = User::whereIn('id', $request->selected_users)->get();
+        return view('admin.users.edit', compact('user'));
+    }
 
-        switch ($action) {
-            case 'delete':
-                foreach ($users as $user) {
-                    $user->delete();
-                }
-                return back()->with('status', 'Выбранные пользователи удалены.');
+    public function assignRole($id, $role): void
+    {
+        $user = User::findOrFail($id);
 
-            case 'assign_role':
-                $roleName = $request->input('role');
-                if (!$roleName || !Role::where('name', $roleName)->exists()) {
-                    return back()->withErrors(['role' => 'Некорректная роль.']);
-                }
+        $user->assignRole($role);
 
-                foreach ($users as $user) {
-                    $user->syncRoles([$roleName]);
-                }
-                return back()->with('status', 'Роль назначена выбранным пользователям.');
-
-            default:
-                return back()->withErrors(['action' => 'Неизвестное действие.']);
-        }
+        session()->flash('message', "User assigned role: $role.");
     }
 }
