@@ -72,7 +72,7 @@ class UserForm extends Component implements HasForms
         // Проверка уникальности email
         $existing = User::where('email', $data['email'])->first();
         if (!$this->user->exists && $existing) {
-            session()->flash('error', 'Пользователь с таким email уже существует.');
+            session()->flash('error', 'User with this email already exists.');
             return;
         }
 
@@ -100,7 +100,7 @@ class UserForm extends Component implements HasForms
         $roleNames = Role::whereIn('id', $data['roles'] ?? [])->pluck('name')->toArray();
         $this->user->syncRoles($roleNames);
 
-        session()->flash('message', 'Пользователь сохранён.');
+        session()->flash('message', 'User successfully created.');
         redirect('/admin/users');
     }
 
