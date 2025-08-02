@@ -33,10 +33,12 @@ class Table extends DataTableComponent
                 ->searchable(),
 
             Column::make('Schedule')
-                ->label(fn($row) => '—'), // Placeholder for schedule link
+                ->label(fn($row) => view('components.schedule-link', ['id' => $row->id]))
+                ->html(), // Ensure HTML rendering
 
             Column::make('Subjects')
-                ->label(fn($row) => $row->subjects->pluck('name')->join(', ')),
+                ->label(fn($row) => view('components.subjects-dropdown', ['subjects' => $row->subjects]))
+                ->html(),
             Column::make('Actions')
                 ->label(function ($row) {
                     return view('components.table-actions', [

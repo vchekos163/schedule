@@ -29,7 +29,10 @@ class Edit extends Component implements HasForms
 
         // Заполнить форму начальными значениями
         $this->form->fill([
-            'subject_ids' => $this->user->subjects()->pluck('subjects.id')->toArray(),
+            'subjects' => $this->user->subjects->map(fn($subject) => [
+                'subject_id' => $subject->id,
+                'quantity' => $subject->pivot->quantity ?? 1,
+            ])->toArray(),
             'availability' => $this->teacher->availability ?? [],
             'max_lessons' => $this->teacher->max_lessons,
             'max_gaps' => $this->teacher->max_gaps,
@@ -41,12 +44,25 @@ class Edit extends Component implements HasForms
     {
 
         return $form->schema([
-            Forms\Components\Select::make('subject_ids')
-                ->label('Subject')
-                ->options(Subject::pluck('name', 'id'))
-                ->multiple()
-                ->searchable()
-                ->preload(),
+            Forms\Components\Repeater::make('subjects')
+                ->label('Subjects')
+                ->schema([
+                    Forms\Components\Select::make('subject_id')
+                        ->label('Subject')
+                        ->options(Subject::pluck('name', 'id'))
+                        ->required()
+                        ->searchable(),
+
+                    Forms\Components\TextInput::make('quantity')
+                        ->label('Quantity')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->required(),
+                ])
+                ->columns(2)
+                ->default([])
+                ->reorderable(),
             Forms\Components\Repeater::make('availability')
                 ->label('Working Days and Time Slots')
                 ->schema([
@@ -76,7 +92,7 @@ class Edit extends Component implements HasForms
             Forms\Components\TextInput::make('max_gaps')
                 ->numeric()
                 ->required(),
-
+/*
             Forms\Components\Select::make('co_teachers')
                 ->label('Co-Teachers')
                 ->multiple()
@@ -88,6 +104,7 @@ class Edit extends Component implements HasForms
                         ->get()
                         ->mapWithKeys(fn($user) => [$user->id => $user->name])
                 ),
+*/
         ])->statePath('data');
     }
 
@@ -100,8 +117,15 @@ class Edit extends Component implements HasForms
         $this->teacher->max_gaps = $data['max_gaps'];
         $this->teacher->save();
 
-        $this->user->subjects()->sync($data['subject_ids'] ?? []);
+        $subjectData = collect($data['subjects'] ?? [])
+            ->filter(fn ($item) => !empty($item['subject_id']))
+            ->mapWithKeys(fn ($item) => [
+                $item['subject_id'] => ['quantity' => $item['quantity'] ?? 1],
+            ])
+            ->toArray();
 
+        $this->user->subjects()->sync($subjectData);
+/*
         // Создаём записи в teachers, если co-teachers ещё не существуют
         $coTeacherIds = collect($data['co_teachers'] ?? [])
             ->map(function ($userId) {
@@ -111,7 +135,7 @@ class Edit extends Component implements HasForms
 
         // Сохраняем связи co-teachers
         $this->teacher->coTeachers()->sync($coTeacherIds);
-
+*/
         session()->flash('message', 'Teacher updated successfully.');
         redirect('/admin/teachers');
     }

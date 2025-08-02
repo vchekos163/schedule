@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             RolesSeeder::class,
             AdminUserSeeder::class,
             SubjectsSeeder::class,
+            SubjectColorSeeder::class,
         ]);
 
     }

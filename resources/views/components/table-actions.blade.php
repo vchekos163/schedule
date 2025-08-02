@@ -9,7 +9,7 @@
     </button>
 
     <div x-show="open" @click.away="open = false"
-         class="absolute right-0 mt-2 w-48 origin-top-right rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+         class="z-50 absolute right-0 mt-2 w-48 origin-top-right rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
         <div class="py-1">
             @foreach ($actions as $action)
                 @if ($action['type'] === 'link')

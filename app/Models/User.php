@@ -49,7 +49,7 @@ class User extends Authenticatable
 
     public function subjects()
     {
-        return $this->belongsToMany(Subject::class, 'subject_user');
+        return $this->belongsToMany(Subject::class)->withPivot('quantity');
     }
 
     public function teacher()
@@ -57,4 +57,8 @@ class User extends Authenticatable
         return $this->hasOne(\App\Models\Teacher::class);
     }
 
+    public function lessons()
+    {
+        return $this->belongsToMany(Lesson::class, 'lesson_users', 'user_id', 'lesson_id');
+    }
 }
