@@ -79,7 +79,6 @@ class Edit extends Component implements HasForms
                 ->required()
                 ->seconds(false)
                 ->step(900)
-                ->timezone('Europe/Vilnius')
         ])->statePath('data');
     }
 

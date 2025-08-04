@@ -6,6 +6,12 @@
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Student schedule: {{ $user->name }}</h1>
 
+            <a
+                href="{{ url('schedule/index/optimize/user_id/'. $user->id) }}"
+                class="grid-head-button bg-green-600 hover:bg-green-700 text-white ml-4"
+            >
+                Optimize
+            </a>
             <button
                 class="grid-head-button"
                 x-data
@@ -47,6 +53,12 @@
                 selectable: true,
                 selectMirror: true,
 
+                dayHeaderFormat: {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: '2-digit'
+                },
+
                 eventDrop: function (info) {
                     updateLesson(info.event);
                 },
@@ -67,11 +79,37 @@
                     wrapper.className = 'flex justify-between items-start gap-1 w-full';
 
                     const infoBox = document.createElement('div');
-                    infoBox.innerHTML = `
+                    infoBox.className = 'flex items-start';
+
+                    const reasonBtn = document.createElement('span');
+                    reasonBtn.textContent = '❓';
+                    reasonBtn.className = 'cursor-pointer text-white text-sm hover:text-yellow-400 relative';
+
+                    // Tooltip element
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'absolute z-[9999] left-4 top-6 text-red-600 bg-white border border-red-300 px-3 py-2 text-sm rounded shadow max-w-xs w-64 hidden';
+                    tooltip.setAttribute('style', `width: 150px;z-index: 9999;`);
+                    tooltip.style.top = '1.5rem';
+                    tooltip.style.left = '0';
+                    tooltip.style.z = '2000';
+                    tooltip.textContent = arg.event.extendedProps.reason || 'No reason provided.';
+
+                    // Toggle display
+                    reasonBtn.addEventListener('click', () => {
+                        tooltip.classList.toggle('hidden');
+                    });
+
+                    reasonBtn.appendChild(tooltip);
+
+                    const lessonDetails = document.createElement('div');
+                    lessonDetails.innerHTML = `
                         <div class="font-semibold text-white truncate">${arg.event.title}</div>
                         <div class="text-sm text-gray-200">${arg.event.extendedProps.room || ''}</div>
                         <div class="text-xs text-gray-300">${arg.event.extendedProps.teachers || ''}</div>
                     `;
+
+                    infoBox.appendChild(reasonBtn);
+                    infoBox.appendChild(lessonDetails);
 
                     const dropdownWrapper = document.createElement('div');
                     dropdownWrapper.className = 'relative ml-auto';
@@ -114,7 +152,7 @@
                 const id = e.target.getAttribute('data-id');
 
                 if (confirm('Are you sure you want to delete this lesson?')) {
-                    fetch(`/admin/schedule/delete/lesson_id/${id}`, {
+                    fetch(`/schedule/lesson/delete/lesson_id/${id}`, {
                         method: 'GET',
                         headers: {
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -142,7 +180,7 @@
             const startTime = formatTime(event.start);
             const endTime = event.end ? event.end.toISOString().slice(11, 16) : startTime;
 
-            const url = `/admin/schedule/update/lesson_id/${lessonId}/date/${date}/start_time/${startTime}/end_time/${endTime}`;
+            const url = `/schedule/lesson/update/lesson_id/${lessonId}/date/${date}/start_time/${startTime}/end_time/${endTime}`;
 
             fetch(url, {
                 method: 'GET',
