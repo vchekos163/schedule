@@ -7,8 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Subject extends Model
 {
     protected $fillable = [
-        'name',
-        'priority'
+        'name'
     ];
 
     public function users()

@@ -27,6 +27,9 @@
                         <x-nav-link :href="url('/admin/students')" :active="request()->is('admin/students*')">
                             {{ __('Students') }}
                         </x-nav-link>
+                        <x-nav-link :href="url('/admin/subjects')" :active="request()->is('admin/subjects*')">
+                            {{ __('Subjects') }}
+                        </x-nav-link>
                         <x-nav-link :href="url('/admin/rooms')" :active="request()->is('admin/rooms*')">
                             {{ __('Rooms') }}
                         </x-nav-link>

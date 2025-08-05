@@ -37,7 +37,10 @@ class Table extends DataTableComponent
                 ->html(), // Ensure HTML rendering
 
             Column::make('Subjects')
-                ->label(fn($row) => view('components.subjects-dropdown', ['subjects' => $row->subjects]))
+                ->label(fn($row) => view('components.dropdown-list', [
+                    'label' => 'Subjects',
+                    'items' => $row->subjects,
+                ]))
                 ->html(),
             Column::make('Actions')
                 ->label(function ($row) {

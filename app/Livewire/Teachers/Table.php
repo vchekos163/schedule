@@ -29,7 +29,10 @@ class Table extends DataTableComponent
             Column::make('Name', 'name')->sortable()->searchable(),
 
             Column::make('Subjects')
-                ->label(fn($row) => view('components.subjects-dropdown', ['subjects' => $row->subjects]))
+                ->label(fn($row) => view('components.dropdown-list', [
+                    'label' => 'Subjects',
+                    'items' => $row->subjects,
+                ]))
                 ->html(),
 
             Column::make('Availability')

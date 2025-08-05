@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Livewire\Users;
+namespace App\Livewire\Subjects;
 
+use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Rappasoft\LaravelLivewireTables\DataTableComponent;
@@ -16,32 +17,35 @@ class Table extends DataTableComponent
                 'bulkDelete' => 'Delete Selected',
             ])
             ->setConfigurableAreas([
-                'toolbar-left-start'
+                'toolbar-left-start',
             ]);
     }
 
     public function builder(): Builder
     {
-        // Eager-load roles for performance
-        return User::with('roles')->select('users.*');
+        return Subject::query()
+            ->with('users')
+            ->select('subjects.*');;
     }
 
     public function columns(): array
     {
         return [
-            Column::make('ID', 'id')->sortable(),
-            Column::make('Name', 'name')->searchable()->sortable(),
-            Column::make('Email', 'email')->searchable(),
-            Column::make('Role')
-                ->label(fn($row) => $row->roles->pluck('name')->join(', '))
-                ->sortable(function (Builder $query, $direction) {
-                    // Optional: sort by role name using join
-                    return $query->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
-                        ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
-                        ->orderBy('roles.name', $direction)
-                        ->select('users.*');
-                }),
-            Column::make('Created At', 'created_at')->sortable(),
+            Column::make('Name', 'name')
+                ->sortable()
+                ->searchable(),
+
+            Column::make('Assigned Teachers')
+                ->label(function ($row) {
+                    $teachers = $row->users->filter(fn ($user) => $user->hasRole('teacher'));
+
+                    return view('components.dropdown-list', [
+                        'items' => $teachers,
+                        'label' => 'Teachers',
+                    ]);
+                })
+                ->html(),
+
             Column::make('Actions')
                 ->label(function ($row) {
                     return view('components.table-actions', [
@@ -50,7 +54,7 @@ class Table extends DataTableComponent
                             [
                                 'label' => 'Edit',
                                 'type' => 'link',
-                                'href' => "/admin/users/edit/user_id/{$row->id}",
+                                'href' => "/admin/subjects/edit/subject_id/{$row->id}",
                             ],
                             [
                                 'label' => 'Delete',
@@ -62,19 +66,20 @@ class Table extends DataTableComponent
                         ],
                     ]);
                 }),
+
         ];
     }
 
     public function bulkDelete(): void
     {
-        User::whereIn('id', $this->getSelected())->delete();
+        Subject::whereIn('id', $this->getSelected())->delete();
         $this->clearSelected();
-        session()->flash('message', 'Selected users have been deleted.');
+        session()->flash('message', 'Selected subjects have been deleted.');
     }
 
     public function delete($id): void
     {
-        User::findOrFail($id)->delete();
-        session()->flash('message', 'User deleted successfully.');
+        Subject::findOrFail($id)->delete();
+        session()->flash('message', 'Subject deleted successfully.');
     }
 }
