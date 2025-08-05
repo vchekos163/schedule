@@ -43,9 +43,9 @@
                 slotDuration: '00:15:00',
                 slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
                 allDaySlot: false,
-                scrollTime: '08:00:00',
-                slotMinTime: '08:00:00',
-                slotMaxTime: '16:00:00',
+                scrollTime: '09:00:00',
+                slotMinTime: '09:00:00',
+                slotMaxTime: '15:00:00',
                 nowIndicator: true,
                 firstDay: 1,
                 locale: 'en',
@@ -56,8 +56,8 @@
                 dayHeaderFormat: {
                     weekday: 'short',
                     day: '2-digit',
-                    month: '2-digit'
                 },
+                weekends: false,
 
                 eventDrop: function (info) {
                     updateLesson(info.event);

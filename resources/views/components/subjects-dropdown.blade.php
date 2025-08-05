@@ -20,7 +20,7 @@
             <ul class="divide-y divide-gray-100 text-sm">
                 @foreach($subjects as $subject)
                     <li class="flex justify-between px-4 py-2">
-                        <span>{{ $subject->name }}</span>
+                        <span>{{ $subject->name }} ({{ $subject->priority }})</span>
                         <span class="text-gray-500">×{{ $subject->pivot->quantity }}</span>
                     </li>
                 @endforeach

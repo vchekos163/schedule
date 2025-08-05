@@ -30,13 +30,14 @@ class Edit extends Component implements HasForms
         // Заполнить форму начальными значениями
         $this->form->fill([
             'subjects' => $this->user->subjects->map(fn($subject) => [
-                'subject_id' => $subject->id,
+                'name' => $subject->name,
+                'priority' => $subject->priority,
                 'quantity' => $subject->pivot->quantity ?? 1,
             ])->toArray(),
             'availability' => $this->teacher->availability ?? [],
             'max_lessons' => $this->teacher->max_lessons,
             'max_gaps' => $this->teacher->max_gaps,
-            'co_teachers' => $this->teacher->coTeachers()->pluck('co_teacher_teacher.co_teacher_id')->toArray(),
+//            'co_teachers' => $this->teacher->coTeachers()->pluck('co_teacher_teacher.co_teacher_id')->toArray(),
         ]);
     }
 
@@ -47,11 +48,19 @@ class Edit extends Component implements HasForms
             Forms\Components\Repeater::make('subjects')
                 ->label('Subjects')
                 ->schema([
-                    Forms\Components\Select::make('subject_id')
-                        ->label('Subject')
-                        ->options(Subject::pluck('name', 'id'))
-                        ->required()
-                        ->searchable(),
+                    Forms\Components\TextInput::make('name')
+                        ->label('Subject Name')
+                        ->required(),
+
+                    Forms\Components\Select::make('priority')
+                        ->label('Priority')
+                        ->options([
+                            'must' => 'Must',
+                            'classroom' => 'Classroom',
+                            'free' => 'Free',
+                        ])
+                        ->default('must')
+                        ->required(),
 
                     Forms\Components\TextInput::make('quantity')
                         ->label('Quantity')
@@ -60,9 +69,10 @@ class Edit extends Component implements HasForms
                         ->default(1)
                         ->required(),
                 ])
-                ->columns(2)
+                ->columns(3)
                 ->default([])
                 ->reorderable(),
+
             Forms\Components\Repeater::make('availability')
                 ->label('Working Days and Time Slots')
                 ->schema([
@@ -117,14 +127,28 @@ class Edit extends Component implements HasForms
         $this->teacher->max_gaps = $data['max_gaps'];
         $this->teacher->save();
 
-        $subjectData = collect($data['subjects'] ?? [])
-            ->filter(fn ($item) => !empty($item['subject_id']))
-            ->mapWithKeys(fn ($item) => [
-                $item['subject_id'] => ['quantity' => $item['quantity'] ?? 1],
-            ])
-            ->toArray();
+        $subjectsInput = collect($data['subjects'] ?? []);
+        $syncData = [];
 
-        $this->user->subjects()->sync($subjectData);
+        foreach ($subjectsInput as $item) {
+            if (!empty($item['name'])) {
+                $subject = Subject::firstOrCreate(
+                    ['name' => $item['name']],
+                    ['priority' => $item['priority'] ?? 'must']
+                );
+
+                $syncData[$subject->id] = [
+                    'quantity' => $item['quantity'] ?? 1,
+                ];
+
+                if ($subject->priority !== ($item['priority'] ?? 'must')) {
+                    $subject->priority = $item['priority'] ?? 'must';
+                    $subject->save();
+                }
+            }
+        }
+
+        $this->user->subjects()->sync($syncData);
 /*
         // Создаём записи в teachers, если co-teachers ещё не существуют
         $coTeacherIds = collect($data['co_teachers'] ?? [])
