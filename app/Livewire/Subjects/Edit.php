@@ -29,7 +29,7 @@ class Edit extends Component implements HasForms
 
         $this->form->fill([
             'name' => $this->subject->name ?? '',
-            'description' => $this->subject->description ?? '',
+            'color' => $this->subject->color ?? '',
             'teacher_ids' => $this->teacher_ids,
         ]);
     }
@@ -41,6 +41,9 @@ class Edit extends Component implements HasForms
                 ->label('Subject Name')
                 ->required()
                 ->maxLength(255),
+
+            Forms\Components\ColorPicker::make('color')
+                ->label('Color'),
 
             Forms\Components\Select::make('teacher_ids')
                 ->label('Assigned Teachers')
@@ -61,6 +64,7 @@ class Edit extends Component implements HasForms
 
         $subjectData = [
             'name' => $data['name'],
+            'color' => $data['color'],
         ];
 
         if (!$this->subject->exists) {

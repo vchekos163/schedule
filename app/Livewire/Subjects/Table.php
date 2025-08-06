@@ -32,6 +32,17 @@ class Table extends DataTableComponent
     {
         return [
             Column::make('Name', 'name')
+                ->label(function ($row) {
+                    $color = $row->color ?? '#999';
+
+                    return <<<HTML
+            <div class="flex items-center gap-2">
+                <span class="w-4 h-4 rounded-full inline-block" style="background-color: {$color};"></span>
+                <span>{$row->name}</span>
+            </div>
+        HTML;
+                })
+                ->html()
                 ->sortable()
                 ->searchable(),
 
