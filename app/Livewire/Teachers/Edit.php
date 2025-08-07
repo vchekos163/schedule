@@ -27,13 +27,21 @@ class Edit extends Component implements HasForms
         // Найти или создать запись teacher по user_id
         $this->teacher = Teacher::firstOrNew(['user_id' => $userId]);
 
+        $availabilityMatrix = [];
+
+        foreach ($this->teacher->availability ?? [] as $day => $hours) {
+            foreach ($hours as $hour) {
+                $availabilityMatrix[$hour][$day] = true;
+            }
+        }
+
         // Заполнить форму начальными значениями
         $this->form->fill([
             'subjects' => $this->user->subjects->map(fn($subject) => [
                 'subject_id' => $subject->id,
                 'quantity' => $subject->pivot->quantity ?? 1,
             ])->toArray(),
-            'availability' => $this->teacher->availability ?? [],
+            'availability_matrix' => $availabilityMatrix,
             'max_lessons' => $this->teacher->max_lessons,
             'max_gaps' => $this->teacher->max_gaps,
 //            'co_teachers' => $this->teacher->coTeachers()->pluck('co_teacher_teacher.co_teacher_id')->toArray(),
@@ -49,7 +57,7 @@ class Edit extends Component implements HasForms
                 ->schema([
                     Forms\Components\Select::make('subject_id')
                         ->label('Subject')
-                        ->options(Subject::pluck('name', 'id'))
+                        ->options(Subject::pluck('code', 'id'))
                         ->required()
                         ->searchable(),
 
@@ -63,27 +71,42 @@ class Edit extends Component implements HasForms
                 ->columns(2)
                 ->default([])
                 ->reorderable(),
-            Forms\Components\Repeater::make('availability')
-                ->label('Working Days and Time Slots')
-                ->schema([
-                    Forms\Components\Select::make('day')
-                        ->label('Day')
-                        ->options([
-                            'monday' => 'Monday',
-                            'tuesday' => 'Tuesday',
-                            'wednesday' => 'Wednesday',
-                            'thursday' => 'Thursday',
-                            'friday' => 'Friday',
-                            'saturday' => 'Saturday',
-                            'sunday' => 'Sunday',
-                        ])
-                        ->required(),
-                    Forms\Components\TextInput::make('slots')
-                        ->label('Time Slots (e.g. 09:00-12:00, 14:00-16:00)')
-                        ->required(),
-                ])
-                ->default([])
-                ->reorderable(),
+
+            Forms\Components\Fieldset::make('Availability')
+                ->schema(function () {
+                    $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+                    $hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
+
+                    $schema = [];
+
+                    // Header row
+                    $schema[] = Forms\Components\Grid::make(count($days) + 1)->schema(array_merge(
+                        [
+                            Forms\Components\Placeholder::make('Time')
+                                ->label(null)
+                        ],
+                        collect($days)->map(fn($day) =>
+                        Forms\Components\Placeholder::make("$day")
+                            ->label(null)
+                        )->toArray()
+                    ));
+
+                    // Rows with checkboxes
+                    foreach ($hours as $hour) {
+                        $schema[] = Forms\Components\Grid::make(count($days) + 1)->schema(array_merge(
+                            [
+                                Forms\Components\Placeholder::make("$hour")
+                                    ->label(null)
+                            ],
+                            collect($days)->map(fn($day) =>
+                            Forms\Components\Checkbox::make("availability_matrix.$hour.$day")
+                                ->label('') // or ->label(null) if you want no title at all
+                            )->toArray()
+                        ));
+                    }
+
+                    return $schema;
+                }),
 
             Forms\Components\TextInput::make('max_lessons')
                 ->numeric()
@@ -112,9 +135,20 @@ class Edit extends Component implements HasForms
     {
         $data = $this->form->getState();
         $this->teacher->user_id = $this->user->id;
-        $this->teacher->availability = $data['availability'];
         $this->teacher->max_lessons = $data['max_lessons'];
         $this->teacher->max_gaps = $data['max_gaps'];
+
+        $availabilityMatrix = $data['availability_matrix'] ?? [];
+        $availability = [];
+        foreach ($availabilityMatrix as $hour => $days) {
+            foreach ($days as $day => $checked) {
+                if ($checked) {
+                    $availability[$day][] = $hour;
+                }
+            }
+        }
+        $this->teacher->availability = $availability;
+
         $this->teacher->save();
 
         $subjectData = collect($data['subjects'] ?? [])

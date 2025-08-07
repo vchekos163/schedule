@@ -8,8 +8,21 @@ class Subject extends Model
 {
     protected $fillable = [
         'name',
+        'code',
+        'priority',
         'color',
     ];
+
+    public static function getPriority(): array
+    {
+        return [
+            'must' => 'MUST',
+            'spec' => 'SPEC',
+            'consult' => 'CONSULT',
+            'homework' => 'H/W',
+            'online_consult' => 'ONLINE CONSULT',
+        ];
+    }
 
     public function users()
     {

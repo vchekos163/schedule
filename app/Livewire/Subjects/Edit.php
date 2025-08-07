@@ -29,6 +29,8 @@ class Edit extends Component implements HasForms
 
         $this->form->fill([
             'name' => $this->subject->name ?? '',
+            'code' => $this->subject->code ?? '',
+            'priority' => $this->subject->priority ?? 'must',
             'color' => $this->subject->color ?? '',
             'teacher_ids' => $this->teacher_ids,
         ]);
@@ -42,6 +44,16 @@ class Edit extends Component implements HasForms
                 ->required()
                 ->maxLength(255),
 
+            Forms\Components\TextInput::make('code')
+                ->label('Code')
+                ->nullable(),
+
+            Forms\Components\Select::make('priority')
+                ->label('Priority')
+                ->options(Subject::getPriority())
+                ->searchable()
+                ->required(),
+
             Forms\Components\ColorPicker::make('color')
                 ->label('Color'),
 
@@ -53,8 +65,7 @@ class Edit extends Component implements HasForms
                 ->options(
                     User::whereHas('roles', fn($q) => $q->where('name', 'teacher'))
                         ->pluck('name', 'id')
-                )
-                ->required(),
+                ),
         ])->statePath('data');
     }
 
@@ -64,6 +75,8 @@ class Edit extends Component implements HasForms
 
         $subjectData = [
             'name' => $data['name'],
+            'code' => $data['code'],
+            'priority' => $data['priority'],
             'color' => $data['color'],
         ];
 

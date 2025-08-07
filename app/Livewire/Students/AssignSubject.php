@@ -43,7 +43,7 @@ class AssignSubject extends Component implements HasForms
                 ->schema([
                     Forms\Components\Select::make('subject_id')
                         ->label('Subject')
-                        ->options(Subject::pluck('name', 'id'))
+                        ->options(Subject::pluck('code', 'id'))
                         ->required()
                         ->searchable(),
 

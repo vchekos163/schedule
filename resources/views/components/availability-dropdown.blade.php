@@ -1,4 +1,4 @@
-<div x-data="{ open: false }" class="relative">
+<div x-data="{ open: false }" class="relative inline-block text-left">
     <button
         @click="open = !open"
         class="text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
@@ -17,11 +17,11 @@
         </div>
 
         @if(!empty($availability) && is_array($availability))
-            <ul class="divide-y divide-gray-100 text-sm">
-                @foreach($availability as $item)
+            <ul class="divide-y divide-gray-100 text-sm max-h-64 overflow-y-auto">
+                @foreach($availability as $day => $slots)
                     <li class="flex justify-between px-4 py-2">
-                        <span class="capitalize">{{ $item['day'] ?? '-' }}</span>
-                        <span class="text-gray-500">{{ $item['slots'] ?? '-' }}</span>
+                        <span class="capitalize">{{ $day }}</span>
+                        <span class="text-gray-500">{{ implode(', ', $slots) }}</span>
                     </li>
                 @endforeach
             </ul>

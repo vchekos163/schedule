@@ -46,6 +46,17 @@ class Table extends DataTableComponent
                 ->sortable()
                 ->searchable(),
 
+            Column::make('Code', 'code')
+                ->sortable()
+                ->searchable(),
+
+            Column::make('Priority', 'priority')
+                ->label(function ($row) {
+                    return Subject::getPriority()[$row->priority] ?? ucfirst($row->priority);
+                })
+                ->sortable()
+                ->searchable(),
+
             Column::make('Assigned Teachers')
                 ->label(function ($row) {
                     $teachers = $row->users->filter(fn ($user) => $user->hasRole('teacher'));
