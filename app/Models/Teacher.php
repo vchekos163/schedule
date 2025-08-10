@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Teacher extends Model
 {
     protected $fillable = [
-        'user_id', 'working_days', 'time_slots', 'max_lessons', 'max_gaps'
+        'user_id', 'max_lessons', 'max_gaps'
     ];
 
     protected $casts = [
@@ -18,15 +18,16 @@ class Teacher extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+
     }
 
-    public function coTeachers()
+    public function subjects()
     {
-        return $this->belongsToMany(Teacher::class, 'co_teacher_teacher', 'teacher_id', 'co_teacher_id');
+        return $this->belongsToMany(Subject::class)->withPivot('quantity');
     }
 
-    public function isCoTeacherOf()
+    public function lessons()
     {
-        return $this->belongsToMany(Teacher::class, 'co_teacher_teacher', 'co_teacher_id', 'teacher_id');
+        return $this->belongsToMany(Lesson::class, 'lesson_teacher', 'teacher_id', 'lesson_id');
     }
 }

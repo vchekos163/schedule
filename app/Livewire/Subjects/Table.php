@@ -24,8 +24,8 @@ class Table extends DataTableComponent
     public function builder(): Builder
     {
         return Subject::query()
-            ->with('users')
-            ->select('subjects.*');;
+            ->with('teachers.user')
+            ->select('subjects.*');
     }
 
     public function columns(): array
@@ -59,7 +59,11 @@ class Table extends DataTableComponent
 
             Column::make('Assigned Teachers')
                 ->label(function ($row) {
-                    $teachers = $row->users->filter(fn ($user) => $user->hasRole('teacher'));
+                    $teachers = $row->teachers->filter(fn ($t) => $t->user)
+                        ->map(function ($t) {
+                            $t->name = $t->user->name;
+                            return $t;
+                        });;
 
                     return view('components.dropdown-list', [
                         'items' => $teachers,

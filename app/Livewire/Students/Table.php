@@ -33,7 +33,7 @@ class Table extends DataTableComponent
                 ->searchable(),
 
             Column::make('Schedule')
-                ->label(fn($row) => view('components.schedule-link', ['id' => $row->id]))
+                ->label(fn($row) => view('components.schedule-link', ['link' => 'schedule/index/student/user_id/'.$row->id]))
                 ->html(), // Ensure HTML rendering
 
             Column::make('Subjects')

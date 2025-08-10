@@ -18,7 +18,7 @@ class Table extends DataTableComponent
     {
         return User::query()
             ->whereHas('roles', fn ($q) => $q->where('name', 'teacher'))
-            ->with(['subjects', 'teacher']) // если нужно всё вместе teacher.coTeachers.user
+            ->with(['teacher.subjects']) // ← load subjects through Teacher
             ->leftJoin('teachers', 'users.id', '=', 'teachers.user_id')
             ->select('users.*', 'teachers.availability', 'teachers.max_lessons', 'teachers.max_gaps');
     }
@@ -28,10 +28,14 @@ class Table extends DataTableComponent
         return [
             Column::make('Name', 'name')->sortable()->searchable(),
 
+            Column::make('Schedule')
+                ->label(fn($row) => view('components.schedule-link', ['link' => '/schedule/index/teacher/teacher_id/'.$row->teacher->id]))
+                ->html(),
+
             Column::make('Subjects')
                 ->label(fn($row) => view('components.dropdown-list', [
                     'label' => 'Subjects',
-                    'items' => $row->subjects,
+                    'items' => $row->teacher->subjects,
                 ]))
                 ->html(),
 

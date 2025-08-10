@@ -37,7 +37,7 @@ class Edit extends Component implements HasForms
 
         // Заполнить форму начальными значениями
         $this->form->fill([
-            'subjects' => $this->user->subjects->map(fn($subject) => [
+            'subjects' => $this->teacher->subjects->map(fn($subject) => [
                 'subject_id' => $subject->id,
                 'quantity' => $subject->pivot->quantity ?? 1,
             ])->toArray(),
@@ -158,7 +158,7 @@ class Edit extends Component implements HasForms
             ])
             ->toArray();
 
-        $this->user->subjects()->sync($subjectData);
+        $this->teacher->subjects()->sync($subjectData);
 /*
         // Создаём записи в teachers, если co-teachers ещё не существуют
         $coTeacherIds = collect($data['co_teachers'] ?? [])

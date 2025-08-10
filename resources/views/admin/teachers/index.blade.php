@@ -5,8 +5,11 @@
 
         {{-- Page Title --}}
         <div class="flex items-center justify-between mb-6">
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Students</h1>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Teachers</h1>
 
+            <a href="/schedule/index/teachers" class="grid-head-button">
+                Full schedule
+            </a>
         </div>
 
         {{-- Flash message --}}

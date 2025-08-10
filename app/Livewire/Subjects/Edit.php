@@ -4,6 +4,7 @@ namespace App\Livewire\Subjects;
 
 use App\Models\Subject;
 use App\Models\User;
+use App\Models\Teacher;
 use Livewire\Component;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -22,17 +23,20 @@ class Edit extends Component implements HasForms
     public function mount(int $subjectId): void
     {
         $this->subject = $subjectId
-            ? Subject::with('users')->findOrFail($subjectId)
+            ? Subject::with('teachers.user')->findOrFail($subjectId)
             : new Subject();
 
-        $this->teacher_ids = $this->subject->users?->pluck('id')->toArray() ?? [];
-
         $this->form->fill([
-            'name' => $this->subject->name ?? '',
-            'code' => $this->subject->code ?? '',
+            'name'     => $this->subject->name ?? '',
+            'code'     => $this->subject->code ?? '',
             'priority' => $this->subject->priority ?? 'must',
-            'color' => $this->subject->color ?? '',
-            'teacher_ids' => $this->teacher_ids,
+            'color'    => $this->subject->color ?? '',
+            'teachers' => $this->subject->exists
+                ? $this->subject->teachers->map(fn ($t) => [
+                    'teacher_id' => $t->id,
+                    'quantity'   => $t->pivot->quantity ?? 1,
+                ])->toArray()
+                : [],
         ]);
     }
 
@@ -57,15 +61,31 @@ class Edit extends Component implements HasForms
             Forms\Components\ColorPicker::make('color')
                 ->label('Color'),
 
-            Forms\Components\Select::make('teacher_ids')
+            Forms\Components\Repeater::make('teachers')
                 ->label('Assigned Teachers')
-                ->multiple()
-                ->preload()
-                ->searchable()
-                ->options(
-                    User::whereHas('roles', fn($q) => $q->where('name', 'teacher'))
-                        ->pluck('name', 'id')
-                ),
+                ->schema([
+                    Forms\Components\Select::make('teacher_id')
+                        ->label('Teacher')
+                        ->options(
+                            Teacher::with('user')
+                                ->get()
+                                ->mapWithKeys(fn ($t) => [$t->id => $t->user?->name ?? "Teacher #{$t->id}"])
+                        )
+                        ->required()
+                        ->searchable()
+                        ->preload(),
+
+                    Forms\Components\TextInput::make('quantity')
+                        ->label('Quantity')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->required(),
+                ])
+                ->columns(2)
+                ->default([])
+                ->reorderable(),
+
         ])->statePath('data');
     }
 
@@ -86,7 +106,14 @@ class Edit extends Component implements HasForms
             $this->subject->update($subjectData);
         }
 
-        $this->subject->users()->sync($data['teacher_ids'] ?? []);
+        $sync = collect($data['teachers'] ?? [])
+            ->filter(fn ($row) => !empty($row['teacher_id']))
+            ->mapWithKeys(fn ($row) => [
+                (int) $row['teacher_id'] => ['quantity' => max(1, (int) ($row['quantity'] ?? 1))],
+            ])
+            ->toArray();
+
+        $this->subject->teachers()->sync($sync);
 
         session()->flash('message', 'Subject updated successfully.');
 

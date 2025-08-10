@@ -10,6 +10,7 @@ use App\Models\Lesson;
 use App\Models\User;
 use App\Models\Room;
 use App\Models\Teacher;
+use App\Models\Subject;
 
 class IndexController extends Controller
 {
@@ -41,6 +42,56 @@ class IndexController extends Controller
         return view('schedule.index.student', [
             'events' => $events,
             'user' => $user,
+        ]);
+    }
+
+    public function teachers()
+    {
+        $lessons = Lesson::with(['subject', 'teachers.user'])->get();
+
+        $events = $lessons->map(function ($lesson) {
+            return [
+                'id' => $lesson->id,
+                'title' => $lesson->subject->code . ' - ' . $lesson->teachers
+                        ->map(fn($teacher) => $teacher->user->name)
+                        ->join(', '),
+                'color' => $lesson->subject->color,
+                'start' => $lesson->date . 'T' . $lesson->start_time,
+                'end' => $lesson->date . 'T' . $lesson->end_time,
+            ];
+        });
+
+        return view('schedule.index.teachers', [
+            'teacher' => null,
+            'events' => $events,
+            'subjects' => Subject::with('teachers.user')->get(),
+        ]);
+    }
+
+    public function teacher(int $teacher_id)
+    {
+        $teacher = Teacher::findOrFail($teacher_id);
+
+        $lessons = $teacher->lessons()
+            ->with(['subject', 'room', 'teachers.user'])
+            ->get();
+
+        $events = $lessons->map(function ($lesson) {
+            return [
+                'id' => $lesson->id,
+                'title' => $lesson->subject->code . ' - ' . $lesson->teachers
+                        ->map(fn($teacher) => $teacher->user->name)
+                        ->join(', '),
+                'color' => $lesson->subject->color,
+                'start' => $lesson->date . 'T' . $lesson->start_time,
+                'end' => $lesson->date . 'T' . $lesson->end_time,
+            ];
+        });
+
+        return view('schedule.index.teachers', [
+            'teacher' => $teacher,
+            'events' => $events,
+            'subjects' => $teacher->subjects()->with('teachers.user')->get(),
         ]);
     }
 
