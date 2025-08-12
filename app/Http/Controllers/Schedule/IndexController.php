@@ -85,7 +85,8 @@ class IndexController extends Controller
         $events = $lessons->map(function ($lesson) {
             return [
                 'id' => $lesson->id,
-                'title' => $lesson->subject->codesubject->color,
+                'title' => $lesson->subject->code,
+                'color' => $lesson->subject->color,
                 'start' => $lesson->date . 'T' . $lesson->start_time,
                 'end' => $lesson->date . 'T' . $lesson->end_time,
                 'extendedProps' => [
