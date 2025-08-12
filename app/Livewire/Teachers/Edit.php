@@ -19,6 +19,9 @@ class Edit extends Component implements HasForms
     public Teacher $teacher;
     public User $user;
     public array $data = [];
+    public array $availability = [];
+    private array $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    private array $hours = [9, 10, 11, 12, 13, 14, 15, 16];
 
     public function mount(int $userId): void
     {
@@ -27,11 +30,10 @@ class Edit extends Component implements HasForms
         // Найти или создать запись teacher по user_id
         $this->teacher = Teacher::firstOrNew(['user_id' => $userId]);
 
-        $availabilityMatrix = [];
-
-        foreach ($this->teacher->availability ?? [] as $day => $hours) {
-            foreach ($hours as $hour) {
-                $availabilityMatrix[$hour][$day] = true;
+        foreach ($this->days as $day) {
+            foreach ($this->hours as $hour) {
+                $existing = $this->teacher->availability[$day][$hour] ?? null;
+                $this->availability[$day][$hour] = $existing ?? 'UNAVAILABLE';
             }
         }
 
@@ -41,7 +43,6 @@ class Edit extends Component implements HasForms
                 'subject_id' => $subject->id,
                 'quantity' => $subject->pivot->quantity ?? 1,
             ])->toArray(),
-            'availability_matrix' => $availabilityMatrix,
             'max_lessons' => $this->teacher->max_lessons,
             'max_gaps' => $this->teacher->max_gaps,
 //            'co_teachers' => $this->teacher->coTeachers()->pluck('co_teacher_teacher.co_teacher_id')->toArray(),
@@ -71,42 +72,6 @@ class Edit extends Component implements HasForms
                 ->columns(2)
                 ->default([])
                 ->reorderable(),
-
-            Forms\Components\Fieldset::make('Availability')
-                ->schema(function () {
-                    $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-                    $hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
-
-                    $schema = [];
-
-                    // Header row
-                    $schema[] = Forms\Components\Grid::make(count($days) + 1)->schema(array_merge(
-                        [
-                            Forms\Components\Placeholder::make('Time')
-                                ->label(null)
-                        ],
-                        collect($days)->map(fn($day) =>
-                        Forms\Components\Placeholder::make("$day")
-                            ->label(null)
-                        )->toArray()
-                    ));
-
-                    // Rows with checkboxes
-                    foreach ($hours as $hour) {
-                        $schema[] = Forms\Components\Grid::make(count($days) + 1)->schema(array_merge(
-                            [
-                                Forms\Components\Placeholder::make("$hour")
-                                    ->label(null)
-                            ],
-                            collect($days)->map(fn($day) =>
-                            Forms\Components\Checkbox::make("availability_matrix.$hour.$day")
-                                ->label('') // or ->label(null) if you want no title at all
-                            )->toArray()
-                        ));
-                    }
-
-                    return $schema;
-                }),
 
             Forms\Components\TextInput::make('max_lessons')
                 ->numeric()
@@ -138,12 +103,11 @@ class Edit extends Component implements HasForms
         $this->teacher->max_lessons = $data['max_lessons'];
         $this->teacher->max_gaps = $data['max_gaps'];
 
-        $availabilityMatrix = $data['availability_matrix'] ?? [];
         $availability = [];
-        foreach ($availabilityMatrix as $hour => $days) {
-            foreach ($days as $day => $checked) {
-                if ($checked) {
-                    $availability[$day][] = $hour;
+        foreach ($this->availability as $day => $hours) {
+            foreach ($hours as $hour => $state) {
+                if ($state !== 'UNAVAILABLE') {
+                    $availability[$day][$hour] = $state;
                 }
             }
         }

@@ -2,6 +2,11 @@
     <form wire:submit.prevent="save">
         {{ $this->form }}
 
+        <div class="mt-6">
+            <h3 class="text-sm font-semibold mb-2">Availability</h3>
+            @include('livewire.teachers.availability-grid')
+        </div>
+
         <div class="mt-4 flex justify-end gap-4">
             <a href="/admin/teachers" class="btn-cancel">
                 Cancel
