@@ -169,30 +169,72 @@ class IndexController extends Controller
             $newSchedule = $scheduler->generate();
             $newSchedule = $newSchedule['lessons'] ?? [];
 
-            DB::transaction(function () use ($newSchedule) {
-                foreach ($newSchedule as $lessonData) {
-                    $lesson = null;
+            // Build event objects for front-end preview
+            $events = collect($newSchedule)->map(function ($lessonData) {
+                $id = $lessonData['lesson_id'] ?? null;
+                $event = [
+                    'id'    => $id,
+                    'title' => '',
+                    'color' => '#64748b',
+                    'start' => $lessonData['date'] . 'T' . $lessonData['start_time'],
+                    'end'   => $lessonData['date'] . 'T' . $lessonData['end_time'],
+                    'extendedProps' => [
+                        'reason'   => $lessonData['reason'] ?? '',
+                        'room'     => '',
+                        'teachers' => '',
+                    ],
+                ];
 
-                    if (!empty($lessonData['lesson_id'])) {
-                        $lesson = Lesson::find($lessonData['lesson_id']);
+                if ($id) {
+                    $lesson = Lesson::with(['subject', 'room', 'teachers.user'])->find($id);
+                    if ($lesson) {
+                        $event['title'] = $lesson->subject->code ?? ($lesson->subject->name ?? '');
+                        $event['color'] = $lesson->subject->color ?? '#64748b';
+                        $event['extendedProps']['room'] = $lesson->room->code ?? ($lesson->room->name ?? '');
+                        $event['extendedProps']['teachers'] = $lesson->teachers
+                            ->map(fn($t) => $t->user->name)
+                            ->join(', ');
                     }
-
-                    if (!$lesson) {
-                        $lesson = new Lesson();
-                    }
-
-                    $lesson->reason = $lessonData['reason'];
-                    $lesson->room_id = $lessonData['room_id'];
-                    $lesson->date = $lessonData['date'];
-                    $lesson->start_time = $lessonData['start_time'];
-                    $lesson->end_time = $lessonData['end_time'];
-                    $lesson->save();
-
                 }
-            });
+
+                return $event;
+            })->values();
+
+            return response()->json([
+                'lessons' => $newSchedule,
+                'events'  => $events,
+            ]);
         }
 
-      //  return redirect('/schedule/index/teachers')->with('message', 'Schedule optimized and saved!');
+        return response()->json(['lessons' => [], 'events' => []]);
+    }
+
+    public function saveOptimizedTeachers(Request $request)
+    {
+        $newSchedule = $request->input('lessons', []);
+
+        DB::transaction(function () use ($newSchedule) {
+            foreach ($newSchedule as $lessonData) {
+                $lesson = null;
+
+                if (!empty($lessonData['lesson_id'])) {
+                    $lesson = Lesson::find($lessonData['lesson_id']);
+                }
+
+                if (!$lesson) {
+                    $lesson = new Lesson();
+                }
+
+                $lesson->reason = $lessonData['reason'];
+                $lesson->room_id = $lessonData['room_id'];
+                $lesson->date = $lessonData['date'];
+                $lesson->start_time = $lessonData['start_time'];
+                $lesson->end_time = $lessonData['end_time'];
+                $lesson->save();
+            }
+        });
+
+        return response()->json(['status' => 'saved']);
     }
 
     public function optimize($user_id)

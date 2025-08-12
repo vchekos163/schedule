@@ -60,6 +60,9 @@
             const calendarEl = document.getElementById('calendar');
             const teacherId = calendarEl.getAttribute('data-teacher-id');
 
+            let originalEvents = null;
+            let generatedLessons = null;
+
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
                 slotDuration: '00:15:00',
@@ -87,7 +90,7 @@
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'timeGridWeek,timeGridDay fillWeek optimize'
+                    right: 'timeGridWeek,timeGridDay fillWeek optimize save undo'
                 },
 
                 // Custom buttons for calendar
@@ -105,15 +108,56 @@
                         click: () => {
                             const monday = toLocalYMD(calendar.view.activeStart);
                             const spinner = document.getElementById('spinner');
-                            spinner.classList.remove('hidden'); // show spinner
+                            spinner.classList.remove('hidden');
+
+                            originalEvents = calendar.getEvents().map(ev => ({
+                                id: ev.id,
+                                title: ev.title,
+                                start: ev.startStr,
+                                end: ev.endStr,
+                                color: ev.backgroundColor,
+                                extendedProps: ev.extendedProps,
+                            }));
 
                             fetch(`/schedule/index/optimizeTeachers/start/${monday}`)
-                                .then(() => {
-                                    window.location.reload();
+                                .then(res => res.json())
+                                .then(data => {
+                                    generatedLessons = data.lessons || [];
+                                    calendar.removeAllEvents();
+                                    calendar.addEventSource(data.events || []);
+                                    document.querySelector('.fc-save-button').style.display = '';
+                                    document.querySelector('.fc-undo-button').style.display = '';
                                 })
-                                .finally(() => {
-                                    spinner.classList.add('hidden'); // hide spinner if no reload
-                                });
+                                .catch(() => alert('Optimization failed'))
+                                .finally(() => spinner.classList.add('hidden'));
+                        }
+                    },
+                    save: {
+                        text: 'Save',
+                        click: () => {
+                            if (!generatedLessons) return;
+                            fetch('/schedule/index/saveOptimizedTeachers', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                },
+                                body: JSON.stringify({ lessons: generatedLessons }),
+                            })
+                                .then(() => window.location.reload())
+                                .catch(() => alert('Failed to save schedule'));
+                        }
+                    },
+                    undo: {
+                        text: 'Undo',
+                        click: () => {
+                            if (!originalEvents) return;
+                            calendar.removeAllEvents();
+                            calendar.addEventSource(originalEvents);
+                            generatedLessons = null;
+                            originalEvents = null;
+                            document.querySelector('.fc-save-button').style.display = 'none';
+                            document.querySelector('.fc-undo-button').style.display = 'none';
                         }
                     }
                 },
@@ -204,6 +248,9 @@
             });
 
             calendar.render();
+
+            document.querySelector('.fc-save-button').style.display = 'none';
+            document.querySelector('.fc-undo-button').style.display = 'none';
 
             // Delegated actions for delete/edit
             document.addEventListener('click', function (e) {
