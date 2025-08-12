@@ -9,21 +9,17 @@ class ScheduleGenerator
     protected array $rooms;
     protected array $currentSchedule;
 
-    public function __construct(array $teachers, array $students, array $rooms, array $currentSchedule = [])
+    public function __construct(array $currentSchedule = [], array $rooms = [])
     {
-        $this->teachers = $teachers;
-        $this->students = $students;
-        $this->rooms = $rooms;
         $this->currentSchedule = $currentSchedule;
+        $this->rooms = $rooms;
     }
 
     public function generate(): array
     {
         $payload = [
-            'teachers' => $this->teachers,
-            'students' => $this->students,
-            'rooms' => $this->rooms,
             'current_schedule' => $this->currentSchedule,
+            'rooms' => $this->rooms,
         ];
 
         $prompt = $this->buildPrompt($payload);
@@ -35,28 +31,29 @@ class ScheduleGenerator
 
     protected function buildPrompt(array $data): string
     {
+        $data = json_encode($data);
         return <<<PROMPT
 Given the following data:
-{$this->prettyJson($data)}
+{$data}
 
-Rearrange the lessons to:
+Rearrange ALL the lessons to:
 - Respect teacher availability and max gaps
-- Prioritize lower-level subjects for students
-- Assign appropriate rooms based on availability and features
-- Write very short reason why this lesson on this place
+- Analyse students subjects, and their load
+- Choose rooms that match capacity and features so they are not overfilled
+- Write brief reasons why this lesson on this place
+- Note that day starts at 9:00 and ends at 15:00
+- Week only from monday to friday
+- Lesson always lasts 45 minutes with 15 minute gaps
 
 Return only valid JSON array of lessons:
 [
   {
-    "lesson_id": null,
+    "lesson_id": 1,
     "reason": "why"
-    "subject_id": 101,
-    "teacher_ids": [1],
     "room_id": 301,
     "date": "2025-08-05",
-    "start_time": "08:00",
-    "end_time": "08:45",
-    "student_ids": [201]
+    "start_time": "09:00",
+    "end_time": "09:45",
   }
 ]
 PROMPT;
@@ -68,7 +65,7 @@ PROMPT;
         $url = "https://api.openai.com/v1/chat/completions";
 
         $data = [
-            "model" => "gpt-4o",
+            "model" => "gpt-5",
             "messages" => [
                 [
                     "role" => "system",
@@ -79,7 +76,6 @@ PROMPT;
                     "content" => $prompt
                 ]
             ],
-            "temperature" => 0.2,
             "response_format" => array(
                 "type" => "json_object",
             ),

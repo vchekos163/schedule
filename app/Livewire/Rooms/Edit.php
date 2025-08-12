@@ -25,13 +25,14 @@ class Edit extends Component implements HasForms
             ? Room::with('subjects')->findOrFail($roomId)
             : new Room();
 
-        $this->subject_ids = $this->room->subjects?->pluck('id')->toArray() ?? [];
+//        $this->subject_ids = $this->room->subjects?->pluck('id')->toArray() ?? [];
 
         $this->form->fill([
             'name' => $this->room->name ?? '',
+            'code' => $this->room->code ?? '',
             'capacity' => $this->room->capacity ?? '',
             'purpose' => $this->room->purpose ?? '',
-            'subject_ids' => $this->subject_ids,
+//            'subject_ids' => $this->subject_ids,
         ]);
     }
 
@@ -40,6 +41,11 @@ class Edit extends Component implements HasForms
         return $form->schema([
             Forms\Components\TextInput::make('name')
                 ->label('Room Name')
+                ->required()
+                ->maxLength(255),
+
+            Forms\Components\TextInput::make('code')
+                ->label('Code')
                 ->required()
                 ->maxLength(255),
 
@@ -52,7 +58,7 @@ class Edit extends Component implements HasForms
                 ->label('Purpose')
                 ->required()
                 ->maxLength(255),
-
+/*
             Forms\Components\Select::make('subject_ids')
                 ->label('Allowed Subjects')
                 ->multiple()
@@ -60,6 +66,7 @@ class Edit extends Component implements HasForms
                 ->searchable()
                 ->options(Subject::pluck('name', 'id'))
                 ->required(),
+*/
         ])->statePath('data');
     }
 
@@ -78,7 +85,7 @@ class Edit extends Component implements HasForms
             $this->room->update($roomFata);
         }
 
-        $this->room->subjects()->sync($data['subject_ids'] ?? []);
+//        $this->room->subjects()->sync($data['subject_ids'] ?? []);
 
         session()->flash('message', 'Room updated successfully.');
 

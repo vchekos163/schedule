@@ -6,6 +6,14 @@
         <div class="w-1/4" id="external-events">
             <h1 class="text-lg font-semibold mb-3">
                 Teacher schedule{{ $teacher ? ': ' . ($teacher->user->name ?? 'Teacher') : '' }}
+                <span id="spinner" class="hidden">
+                    <svg class="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z">
+                        </path>
+                    </svg>
+                </span>
             </h1>
 
             <h2 class="text-sm font-semibold mb-2">Subjects</h2>
@@ -79,10 +87,10 @@
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'timeGridWeek,timeGridDay fillWeek'
+                    right: 'timeGridWeek,timeGridDay fillWeek optimize'
                 },
 
-                // Custom button to auto-fill week for this teacher (server redirects back)
+                // Custom buttons for calendar
                 customButtons: {
                     fillWeek: {
                         text: 'Fill week',
@@ -90,6 +98,22 @@
                             const monday = toLocalYMD(calendar.view.activeStart); // local YYYY-MM-DD
                             window.location.href =
                                 `/schedule/lesson/autoFillTeacher/teacher_id/${teacherId}/start/${monday}`;
+                        }
+                    },
+                    optimize: {
+                        text: 'Optimize',
+                        click: () => {
+                            const monday = toLocalYMD(calendar.view.activeStart);
+                            const spinner = document.getElementById('spinner');
+                            spinner.classList.remove('hidden'); // show spinner
+
+                            fetch(`/schedule/index/optimizeTeachers/start/${monday}`)
+                                .then(() => {
+                                    window.location.reload();
+                                })
+                                .finally(() => {
+                                    spinner.classList.add('hidden'); // hide spinner if no reload
+                                });
                         }
                     }
                 },

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Schedule;
 
 use App\Http\Controllers\Controller;
 use App\Services\ScheduleGenerator;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Lesson;
@@ -52,12 +53,17 @@ class IndexController extends Controller
         $events = $lessons->map(function ($lesson) {
             return [
                 'id' => $lesson->id,
-                'title' => $lesson->subject->code . ' - ' . $lesson->teachers
-                        ->map(fn($teacher) => $teacher->user->name)
-                        ->join(', '),
+                'title' => $lesson->subject->code,
                 'color' => $lesson->subject->color,
                 'start' => $lesson->date . 'T' . $lesson->start_time,
                 'end' => $lesson->date . 'T' . $lesson->end_time,
+                'extendedProps' => [
+                    'reason' => $lesson->reason,
+                    'room' => $lesson->room->code,
+                    'teachers' => $lesson->teachers
+                        ->map(fn($teacher) => $teacher->user->name)
+                        ->join(', '),
+                ],
             ];
         });
 
@@ -79,12 +85,16 @@ class IndexController extends Controller
         $events = $lessons->map(function ($lesson) {
             return [
                 'id' => $lesson->id,
-                'title' => $lesson->subject->code . ' - ' . $lesson->teachers
-                        ->map(fn($teacher) => $teacher->user->name)
-                        ->join(', '),
-                'color' => $lesson->subject->color,
+                'title' => $lesson->subject->codesubject->color,
                 'start' => $lesson->date . 'T' . $lesson->start_time,
                 'end' => $lesson->date . 'T' . $lesson->end_time,
+                'extendedProps' => [
+                    'reason' => $lesson->reason,
+                    'room' => $lesson->room->code,
+                    'teachers' => $lesson->teachers
+                        ->map(fn($teacher) => $teacher->user->name)
+                        ->join(', '),
+                ],
             ];
         });
 
@@ -93,6 +103,96 @@ class IndexController extends Controller
             'events' => $events,
             'subjects' => $teacher->subjects()->with('teachers.user')->get(),
         ]);
+    }
+
+    public function optimizeTeachers(string $start)
+    {
+        $weekStart = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);//->addWeek();
+        $weekEnd   = $weekStart->copy()->addDays(4);
+
+        // TEACHERS: id, name, availability, limits, subjects (id, code, priority)
+        $existingSchedule = Lesson::select('id','date','start_time','end_time','room_id','subject_id')
+            ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->with([
+                'subject:id,priority',
+                'room:id,capacity',
+                'teachers:id,availability,max_lessons,max_gaps',
+            ])
+            ->get();
+
+// 2) Build subject_id -> [user_ids...] from subject_user
+        $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
+
+        $subjectToStudents = DB::table('subject_user')
+            ->whereIn('subject_id', $subjectIds)
+            ->select('subject_id', 'user_id')
+            ->get()
+            ->groupBy('subject_id')
+            ->map(fn($rows) => $rows->pluck('user_id')->unique()->values()->all());
+
+// 3) Produce the single lessons structure
+
+        $lessons = $existingSchedule->map(function ($l) use ($subjectToStudents) {
+            return [
+                'id'          => $l->id,
+//                'date'        => $l->date,
+//                'start_time'  => $l->start_time,
+//                'end_time'    => $l->end_time,
+/*
+                'room'        => $l->room ? [
+                    'id'       => $l->room->id,
+                    'capacity' => $l->room->capacity,
+                ] : null,
+*/
+                'priority'    => optional($l->subject)->priority,
+                'teachers'    => $l->teachers->map(function ($t) {
+                    return [
+                        'id'           => $t->id,
+                        'availability' => $this->compressAvailabilityNoGaps($t->availability ?? []),
+                        'max_lessons'  => $t->max_lessons ?? null,
+                        'max_gaps'     => $t->max_gaps ?? null,
+                    ];
+                })->values()->all(),
+                'user_ids'    => $subjectToStudents->get($l->subject_id, []),
+            ];
+        })->values();
+
+        $rooms = Room::select('id', 'purpose', 'capacity')->get();
+
+        // Pass trimmed arrays to the generator / LLM
+        if (count($existingSchedule->toArray())) {
+            $scheduler = new ScheduleGenerator(
+                $lessons->toArray(),
+                $rooms->toArray()
+            );
+
+            $newSchedule = $scheduler->generate();
+            $newSchedule = $newSchedule['lessons'] ?? [];
+
+            DB::transaction(function () use ($newSchedule) {
+                foreach ($newSchedule as $lessonData) {
+                    $lesson = null;
+
+                    if (!empty($lessonData['lesson_id'])) {
+                        $lesson = Lesson::find($lessonData['lesson_id']);
+                    }
+
+                    if (!$lesson) {
+                        $lesson = new Lesson();
+                    }
+
+                    $lesson->reason = $lessonData['reason'];
+                    $lesson->room_id = $lessonData['room_id'];
+                    $lesson->date = $lessonData['date'];
+                    $lesson->start_time = $lessonData['start_time'];
+                    $lesson->end_time = $lessonData['end_time'];
+                    $lesson->save();
+
+                }
+            });
+        }
+
+      //  return redirect('/schedule/index/teachers')->with('message', 'Schedule optimized and saved!');
     }
 
     public function optimize($user_id)
@@ -153,4 +253,51 @@ class IndexController extends Controller
 
         return redirect('/schedule/index/student/user_id/'.$user_id)->with('message', 'Schedule optimized and saved!');
     }
+
+    // In the same class as optimizeTeachers()
+
+    private function glueDayNoGapsShort(array $times): ?string
+    {
+        if (empty($times)) return null;
+
+        // normalize -> unique -> sorted "HH:MM"
+        $times = array_values(array_unique(array_map(function ($t) {
+            $t = trim((string)$t);
+            if ($t === '') return null;
+            if (preg_match('/^\d:\d{2}$/', $t)) $t = '0' . $t; // pad
+            return $t;
+        }, $times)));
+        $times = array_filter($times);
+        if (!$times) return null;
+
+        sort($times, SORT_STRING);
+        $startHour = (int)substr(reset($times), 0, 2);
+        $endHour   = (int)substr(end($times), 0, 2);
+
+        return "{$startHour}-{$endHour}";
+    }
+
+    private function compressAvailabilityNoGaps($availability): array
+    {
+        if (!is_array($availability)) return [];
+
+        // Map full day names to short names
+        $dayShort = [
+            'monday'    => 'mon',
+            'tuesday'   => 'tue',
+            'wednesday' => 'wed',
+            'thursday'  => 'thu',
+            'friday'    => 'fri',
+            'saturday'  => 'sat',
+            'sunday'    => 'sun',
+        ];
+
+        $out = [];
+        foreach ($availability as $day => $times) {
+            $shortDay = $dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
+            $out[$shortDay] = $this->glueDayNoGapsShort(is_array($times) ? $times : []);
+        }
+        return $out;
+    }
+
 }

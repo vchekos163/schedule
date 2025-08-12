@@ -25,12 +25,13 @@ class Table extends DataTableComponent
     {
         return [
             Column::make('Room Name', 'name')->sortable()->searchable(),
+            Column::make('Code', 'code')->sortable()->searchable(),
             Column::make('Capacity', 'capacity')->sortable(),
             Column::make('Purpose', 'purpose')->sortable()->searchable(),
-
+/*
             Column::make('Subjects')
                 ->label(fn($row) => $row->subjects->pluck('name')->join(', ') ?: '-'),
-
+*/
             Column::make('Actions')
                 ->label(function ($row) {
                     return view('components.table-actions', [
