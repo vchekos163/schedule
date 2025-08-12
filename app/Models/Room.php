@@ -10,7 +10,7 @@ class Room extends Model
 
     public function subjects()
     {
-        return $this->belongsToMany(Subject::class, 'room_subject', 'room_id', 'subject_id');
+        return $this->belongsToMany(Subject::class)->withPivot('priority');
     }
 }
 

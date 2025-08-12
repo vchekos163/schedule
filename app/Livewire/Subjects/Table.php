@@ -24,7 +24,7 @@ class Table extends DataTableComponent
     public function builder(): Builder
     {
         return Subject::query()
-            ->with('teachers.user')
+            ->with('teachers.user', 'rooms')
             ->select('subjects.*');
     }
 
@@ -57,13 +57,29 @@ class Table extends DataTableComponent
                 ->sortable()
                 ->searchable(),
 
+            Column::make('Rooms')
+                ->label(function ($row) {
+                    $rooms = $row->rooms->map(function ($r) {
+                        $r->name = $r->code;
+                        $r->value = $r->pivot->priority ?? 1;
+                        return $r;
+                    });
+
+                    return view('components.dropdown-list', [
+                        'items' => $rooms,
+                        'label' => 'Rooms',
+                    ]);
+                })
+                ->html(),
+
             Column::make('Assigned Teachers')
                 ->label(function ($row) {
                     $teachers = $row->teachers->filter(fn ($t) => $t->user)
                         ->map(function ($t) {
                             $t->name = $t->user->name;
+                            $t->value = $t->pivot->quantity ?? 1;
                             return $t;
-                        });;
+                        });
 
                     return view('components.dropdown-list', [
                         'items' => $teachers,

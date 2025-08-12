@@ -52,6 +52,7 @@ class Edit extends Component implements HasForms
             Forms\Components\TextInput::make('capacity')
                 ->label('Capacity')
                 ->numeric()
+                ->minValue(1)
                 ->required(),
 
             Forms\Components\TextInput::make('purpose')

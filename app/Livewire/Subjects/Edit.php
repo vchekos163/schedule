@@ -5,6 +5,7 @@ namespace App\Livewire\Subjects;
 use App\Models\Subject;
 use App\Models\User;
 use App\Models\Teacher;
+use App\Models\Room;
 use Livewire\Component;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -31,6 +32,12 @@ class Edit extends Component implements HasForms
             'code'     => $this->subject->code ?? '',
             'priority' => $this->subject->priority ?? 'must',
             'color'    => $this->subject->color ?? '',
+            'rooms'    => $this->subject->exists
+                ? $this->subject->rooms->map(fn ($r) => [
+                    'room_id'  => $r->id,
+                    'room_priority' => (int) ($r->pivot->priority ?? 1),
+                ])->toArray()
+                : [],
             'teachers' => $this->subject->exists
                 ? $this->subject->teachers->map(fn ($t) => [
                     'teacher_id' => $t->id,
@@ -60,6 +67,28 @@ class Edit extends Component implements HasForms
 
             Forms\Components\ColorPicker::make('color')
                 ->label('Color'),
+
+            Forms\Components\Repeater::make('rooms')
+                ->label('Allowed Rooms')
+                ->schema([
+                    Forms\Components\Select::make('room_id')
+                        ->label('Room')
+                        ->options(Room::query()->pluck('code', 'id'))
+                        ->required()
+                        ->searchable()
+                        ->preload()
+                        ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+                    Forms\Components\TextInput::make('room_priority')
+                        ->label('Room priority')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->required()
+                        ->hint('Lower number = higher priority'),
+                ])
+                ->columns(2)
+                ->default([])
+                ->reorderable(),
 
             Forms\Components\Repeater::make('teachers')
                 ->label('Assigned Teachers')
@@ -114,6 +143,15 @@ class Edit extends Component implements HasForms
             ->toArray();
 
         $this->subject->teachers()->sync($sync);
+
+        $syncRooms = collect($data['rooms'] ?? [])
+            ->filter(fn ($row) => ! empty($row['room_id']))
+            ->mapWithKeys(fn ($row) => [
+                (int) $row['room_id'] => ['priority' => (int) ($row['room_priority'] ?? 1)],
+            ])
+            ->toArray();
+
+        $this->subject->rooms()->sync($syncRooms);
 
         session()->flash('message', 'Subject updated successfully.');
 

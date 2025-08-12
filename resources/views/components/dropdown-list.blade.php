@@ -21,8 +21,8 @@
                 @foreach($items as $item)
                     <li class="flex justify-between px-4 py-2">
                         <span>{{ $item->name }}</span>
-                        @if(!empty($item->pivot->quantity))
-                            <span class="text-gray-500">×{{ $item->pivot->quantity }}</span>
+                        @if(!empty($item->value))
+                            <span class="text-gray-500">: {{ $item->value }}</span>
                         @endif
                     </li>
                 @endforeach

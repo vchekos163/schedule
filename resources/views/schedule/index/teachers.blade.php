@@ -144,7 +144,7 @@
                                                 spinner.classList.add('hidden');
                                                 alert('Optimization failed');
                                             });
-                                    }, 1000);
+                                    }, 10000);
                                 })
                                 .catch(() => {
                                     spinner.classList.add('hidden');

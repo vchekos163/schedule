@@ -49,14 +49,13 @@ class OptimizeTeachers implements ShouldQueue
 
         $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
 
-        $subjectToStudents = DB::table('subject_user')
+        $subjectToStudentsQty = DB::table('subject_user')
             ->whereIn('subject_id', $subjectIds)
-            ->select('subject_id', 'user_id')
-            ->get()
+            ->select('subject_id', DB::raw('COUNT(DISTINCT user_id) AS students_quantity'))
             ->groupBy('subject_id')
-            ->map(fn($rows) => $rows->pluck('user_id')->unique()->values()->all());
+            ->pluck('students_quantity', 'subject_id');
 
-        $lessons = $existingSchedule->map(function ($l) use ($subjectToStudents) {
+        $lessons = $existingSchedule->map(function ($l) use ($subjectToStudentsQty) {
             return [
                 'id'          => $l->id,
                 'priority'    => optional($l->subject)->priority,
@@ -68,7 +67,7 @@ class OptimizeTeachers implements ShouldQueue
                         'max_gaps'     => $t->max_gaps ?? null,
                     ];
                 })->values()->all(),
-                'user_ids'    => $subjectToStudents->get($l->subject_id, []),
+                'students_count' => (int) $subjectToStudentsQty->get($l->subject_id, 0),
             ];
         })->values();
 

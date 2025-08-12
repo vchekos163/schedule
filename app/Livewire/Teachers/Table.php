@@ -33,10 +33,17 @@ class Table extends DataTableComponent
                 ->html(),
 
             Column::make('Subjects')
-                ->label(fn($row) => view('components.dropdown-list', [
-                    'label' => 'Subjects',
-                    'items' => $row->teacher->subjects,
-                ]))
+                ->label(function ($row) {
+                    $subjects = $row->teacher->subjects->map(function ($r) {
+                        $r->name = $r->code;
+                        $r->value = $r->pivot->quantity ?? 1;
+                        return $r;
+                    });
+                    return view('components.dropdown-list', [
+                        'label' => 'Subjects',
+                        'items' => $subjects,
+                    ]);
+                })
                 ->html(),
 
             Column::make('Availability')
