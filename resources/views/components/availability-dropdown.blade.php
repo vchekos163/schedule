@@ -19,10 +19,18 @@
         @if(!empty($availability) && is_array($availability))
             <ul class="divide-y divide-gray-100 text-sm max-h-64 overflow-y-auto">
                 @foreach($availability as $day => $slots)
-                    <li class="flex justify-between px-4 py-2">
-                        <span class="capitalize">{{ $day }}</span>
-                        <span class="text-gray-500">{{ implode(', ', $slots) }}</span>
-                    </li>
+                    @php
+                        $display = collect($slots ?? [])
+                            ->filter(fn($state) => strtoupper($state) !== 'UNAVAILABLE')
+                            ->map(fn($state, $hour) => sprintf('%02d:00', (int)$hour) . ' ' . $state)
+                            ->implode(', ');
+                    @endphp
+                    @if($display !== '')
+                        <li class="flex justify-between px-4 py-2">
+                            <span class="capitalize">{{ $day }}</span>
+                            <span class="text-gray-500">{{ $display }}</span>
+                        </li>
+                    @endif
                 @endforeach
             </ul>
         @else

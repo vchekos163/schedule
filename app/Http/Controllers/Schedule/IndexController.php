@@ -254,9 +254,17 @@ class IndexController extends Controller
         ];
 
         $out = [];
-        foreach ($availability as $day => $times) {
+        foreach ($availability as $day => $slots) {
             $shortDay = $dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
-            $out[$shortDay] = $this->glueDayNoGapsShort(is_array($times) ? $times : []);
+            $times = [];
+            if (is_array($slots)) {
+                foreach ($slots as $hour => $state) {
+                    if (strtoupper($state) !== 'UNAVAILABLE') {
+                        $times[] = sprintf('%02d:00', (int)$hour);
+                    }
+                }
+            }
+            $out[$shortDay] = $this->glueDayNoGapsShort($times);
         }
         return $out;
     }
