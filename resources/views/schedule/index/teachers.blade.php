@@ -122,14 +122,34 @@
                             fetch(`/schedule/index/optimizeTeachers/start/${monday}`)
                                 .then(res => res.json())
                                 .then(data => {
-                                    generatedLessons = data.lessons || [];
-                                    calendar.removeAllEvents();
-                                    calendar.addEventSource(data.events || []);
-                                    document.querySelector('.fc-save-button').style.display = '';
-                                    document.querySelector('.fc-undo-button').style.display = '';
+                                    const jobId = data.jobId;
+                                    if (!jobId) throw new Error('No job id');
+
+                                    const poll = setInterval(() => {
+                                        fetch(`/schedule/index/getOptimizedTeachers/jobId/${jobId}`)
+                                            .then(r => r.json())
+                                            .then(result => {
+                                                if (result.status !== 'pending') {
+                                                    clearInterval(poll);
+                                                    generatedLessons = result.lessons || [];
+                                                    calendar.removeAllEvents();
+                                                    calendar.addEventSource(result.events || []);
+                                                    document.querySelector('.fc-save-button').style.display = '';
+                                                    document.querySelector('.fc-undo-button').style.display = '';
+                                                    spinner.classList.add('hidden');
+                                                }
+                                            })
+                                            .catch(() => {
+                                                clearInterval(poll);
+                                                spinner.classList.add('hidden');
+                                                alert('Optimization failed');
+                                            });
+                                    }, 1000);
                                 })
-                                .catch(() => alert('Optimization failed'))
-                                .finally(() => spinner.classList.add('hidden'));
+                                .catch(() => {
+                                    spinner.classList.add('hidden');
+                                    alert('Optimization failed');
+                                });
                         }
                     },
                     save: {

@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Schedule;
 
 use App\Http\Controllers\Controller;
 use App\Services\ScheduleGenerator;
+use App\Jobs\OptimizeTeachers;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -107,106 +110,21 @@ class IndexController extends Controller
 
     public function optimizeTeachers(string $start)
     {
-        $weekStart = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);//->addWeek();
-        $weekEnd   = $weekStart->copy()->addDays(4);
+        $jobId = (string) Str::uuid();
+        OptimizeTeachers::dispatch($start, $jobId);
 
-        // TEACHERS: id, name, availability, limits, subjects (id, code, priority)
-        $existingSchedule = Lesson::select('id','date','start_time','end_time','room_id','subject_id')
-            ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-            ->with([
-                'subject:id,priority',
-                'room:id,capacity',
-                'teachers:id,availability,max_lessons,max_gaps',
-            ])
-            ->get();
+        return response()->json(['jobId' => $jobId]);
+    }
 
-// 2) Build subject_id -> [user_ids...] from subject_user
-        $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
+    public function getOptimizedTeachers(string $jobId)
+    {
+        $data = Cache::get("optimize_teachers_{$jobId}");
 
-        $subjectToStudents = DB::table('subject_user')
-            ->whereIn('subject_id', $subjectIds)
-            ->select('subject_id', 'user_id')
-            ->get()
-            ->groupBy('subject_id')
-            ->map(fn($rows) => $rows->pluck('user_id')->unique()->values()->all());
-
-// 3) Produce the single lessons structure
-
-        $lessons = $existingSchedule->map(function ($l) use ($subjectToStudents) {
-            return [
-                'id'          => $l->id,
-//                'date'        => $l->date,
-//                'start_time'  => $l->start_time,
-//                'end_time'    => $l->end_time,
-/*
-                'room'        => $l->room ? [
-                    'id'       => $l->room->id,
-                    'capacity' => $l->room->capacity,
-                ] : null,
-*/
-                'priority'    => optional($l->subject)->priority,
-                'teachers'    => $l->teachers->map(function ($t) {
-                    return [
-                        'id'           => $t->id,
-                        'availability' => $this->compressAvailabilityNoGaps($t->availability ?? []),
-                        'max_lessons'  => $t->max_lessons ?? null,
-                        'max_gaps'     => $t->max_gaps ?? null,
-                    ];
-                })->values()->all(),
-                'user_ids'    => $subjectToStudents->get($l->subject_id, []),
-            ];
-        })->values();
-
-        $rooms = Room::select('id', 'purpose', 'capacity')->get();
-
-        // Pass trimmed arrays to the generator / LLM
-        if (count($existingSchedule->toArray())) {
-            $scheduler = new ScheduleGenerator(
-                $lessons->toArray(),
-                $rooms->toArray()
-            );
-
-            $newSchedule = $scheduler->generate();
-            $newSchedule = $newSchedule['lessons'] ?? [];
-
-            // Build event objects for front-end preview
-            $events = collect($newSchedule)->map(function ($lessonData) {
-                $id = $lessonData['lesson_id'] ?? null;
-                $event = [
-                    'id'    => $id,
-                    'title' => '',
-                    'color' => '#64748b',
-                    'start' => $lessonData['date'] . 'T' . $lessonData['start_time'],
-                    'end'   => $lessonData['date'] . 'T' . $lessonData['end_time'],
-                    'extendedProps' => [
-                        'reason'   => $lessonData['reason'] ?? '',
-                        'room'     => '',
-                        'teachers' => '',
-                    ],
-                ];
-
-                if ($id) {
-                    $lesson = Lesson::with(['subject', 'room', 'teachers.user'])->find($id);
-                    if ($lesson) {
-                        $event['title'] = $lesson->subject->code ?? ($lesson->subject->name ?? '');
-                        $event['color'] = $lesson->subject->color ?? '#64748b';
-                        $event['extendedProps']['room'] = $lesson->room->code ?? ($lesson->room->name ?? '');
-                        $event['extendedProps']['teachers'] = $lesson->teachers
-                            ->map(fn($t) => $t->user->name)
-                            ->join(', ');
-                    }
-                }
-
-                return $event;
-            })->values();
-
-            return response()->json([
-                'lessons' => $newSchedule,
-                'events'  => $events,
-            ]);
+        if (!$data) {
+            return response()->json(['status' => 'pending']);
         }
 
-        return response()->json(['lessons' => [], 'events' => []]);
+        return response()->json($data);
     }
 
     public function saveOptimizedTeachers(Request $request)
