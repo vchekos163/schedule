@@ -49,41 +49,19 @@ class IndexController extends Controller
         ]);
     }
 
-    public function teachers()
+    public function teachers(int $teacher_id = null)
     {
-        $lessons = Lesson::with(['subject', 'teachers.user'])->get();
-
-        $events = $lessons->map(function ($lesson) {
-            return [
-                'id' => $lesson->id,
-                'title' => $lesson->subject->code,
-                'color' => $lesson->subject->color,
-                'start' => $lesson->date . 'T' . $lesson->start_time,
-                'end' => $lesson->date . 'T' . $lesson->end_time,
-                'extendedProps' => [
-                    'reason' => $lesson->reason,
-                    'room' => $lesson->room->code,
-                    'teachers' => $lesson->teachers
-                        ->map(fn($teacher) => $teacher->user->name)
-                        ->join(', '),
-                ],
-            ];
-        });
-
-        return view('schedule.index.teachers', [
-            'teacher' => null,
-            'events' => $events,
-            'subjects' => Subject::with('teachers.user')->get(),
-        ]);
-    }
-
-    public function teacher(int $teacher_id)
-    {
-        $teacher = Teacher::findOrFail($teacher_id);
-
-        $lessons = $teacher->lessons()
-            ->with(['subject', 'room', 'teachers.user'])
-            ->get();
+        if ($teacher_id) {
+            $teacher = Teacher::findOrFail($teacher_id);
+            $lessons = $teacher->lessons()
+                ->with(['subject', 'room', 'teachers.user'])
+                ->get();
+            $subjects = $teacher->subjects()->with('teachers.user')->get();
+        } else {
+            $teacher = null;
+            $lessons = Lesson::with(['subject', 'room', 'teachers.user'])->get();
+            $subjects = Subject::with('teachers.user')->get();
+        }
 
         $events = $lessons->map(function ($lesson) {
             return [
@@ -105,7 +83,7 @@ class IndexController extends Controller
         return view('schedule.index.teachers', [
             'teacher' => $teacher,
             'events' => $events,
-            'subjects' => $teacher->subjects()->with('teachers.user')->get(),
+            'subjects' => $subjects,
         ]);
     }
 
