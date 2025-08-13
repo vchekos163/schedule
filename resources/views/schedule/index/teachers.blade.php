@@ -41,6 +41,7 @@
 
             let originalEvents = null;
             let generatedLessons = null;
+            let subjectDraggable = null;
 
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
@@ -167,7 +168,7 @@
                     loadWeekData(info.start);
                 },
 
-                // When a subject pill is dropped onto the calendar: create lesson for THIS teacher
+                // When a subject pill is dropped onto the calendar: create lesson from the subject
                 eventReceive(info) {
                     const subjectId = info.event.extendedProps.subjectId;
                     const start = info.event.start;
@@ -178,7 +179,7 @@
                     const date = toLocalYMD(start);
                     const startTime = formatTime(start);
 
-                    fetch(`/schedule/lesson/createForTeacher/teacher_id/${teacherId}/subject_id/${subjectId}/date/${date}/start_time/${startTime}`)
+                    fetch(`/schedule/lesson/createFromSubject/subject_id/${subjectId}/date/${date}/start_time/${startTime}`)
                         .then(res => res.json())
                         .then(data => {
                             if (!data?.id) throw new Error('Creation failed');
@@ -301,17 +302,25 @@
 
             function loadWeekData(dateObj) {
                 const monday = toLocalYMD(dateObj);
+                const spinner = document.getElementById('spinner');
+                spinner.classList.remove('hidden');
                 fetch(`/schedule/index/teachersData/teacher_id/${teacherId}/start/${monday}`)
                     .then(res => res.json())
                     .then(data => {
                         calendar.removeAllEvents();
                         calendar.addEventSource(data.events || []);
                         renderSubjects(data.subjects || []);
-                    });
+                    })
+                    .catch(() => {})
+                    .finally(() => spinner.classList.add('hidden'));
             }
 
             function renderSubjects(subjects) {
                 eventsContainer.innerHTML = '';
+                if (subjectDraggable) {
+                    subjectDraggable.destroy();
+                    subjectDraggable = null;
+                }
                 subjects.forEach(sub => {
                     const div = document.createElement('div');
                     div.className = 'fc-event cursor-pointer text-white px-2 py-1 rounded mb-2';
@@ -324,7 +333,7 @@
                     eventsContainer.appendChild(div);
                 });
 
-                new Draggable(eventsContainer, {
+                subjectDraggable = new Draggable(eventsContainer, {
                     itemSelector: '.fc-event',
                     eventData: function (el) {
                         return {

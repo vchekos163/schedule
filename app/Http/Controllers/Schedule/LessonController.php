@@ -51,34 +51,6 @@ class LessonController extends Controller
         ]);
     }
 
-    public function createForTeacher(int $teacher_id, int $subject_id, string $date, string $start_time)
-    {
-        $teacher = Teacher::with('user')->findOrFail($teacher_id);
-        $subject = Subject::findOrFail($subject_id);
-        $room    = Room::first();
-
-        $end_time = Carbon::createFromFormat('H:i', $start_time)
-            ->addMinutes(45)
-            ->format('H:i');
-
-        $lesson = Lesson::create([
-            'subject_id' => $subject->id,
-            'room_id'    => $room->id,
-            'date'       => $date,
-            'start_time' => $start_time,
-            'end_time'   => $end_time,
-        ]);
-
-        $lesson->teachers()->attach($teacher->id);
-
-        return response()->json([
-            'id'       => $lesson->id,
-            'title'    => $subject->code ?? $subject->name,
-            'room'     => $room->code ?? $room->name,
-            'teachers' => $teacher->user?->name,
-        ]);
-    }
-
     public function autoFillTeacher(int $teacher_id, string $start)
     {
         $periods = config('periods');
