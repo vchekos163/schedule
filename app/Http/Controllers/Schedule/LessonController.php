@@ -39,15 +39,14 @@ class LessonController extends Controller
         // Avoid duplicates if lesson already has some teachers
         $lesson->teachers()->syncWithoutDetaching($teacherIds);
 
-        // Optional: return a composed title so the frontend can update it
-        $title = $subject->name . ' - ' . $subject->teachers
-                ->filter(fn($t) => $t->user)
-                ->map(fn($t) => $t->user->name)
-                ->join(', ');
-
-        return response()->json([
+        return response()->json(        [
             'id' => $lesson->id,
-            'title' => $title,
+            'title' => $lesson->subject->code,
+            'color' => $lesson->subject->color,
+            'room' => $room->code,
+            'teachers' => $subject->teachers
+                ->map(fn($teacher) => $teacher->user->name)
+                ->join(', '),
         ]);
     }
 
