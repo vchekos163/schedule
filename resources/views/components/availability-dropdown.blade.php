@@ -26,7 +26,7 @@
     <button
         type="button"
         @click="open = !open"
-        class="text-xs text-gray-700 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
+        class="text-s text-gray-700 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
         title="Show availability"
     >
         Availability ▾
@@ -59,7 +59,7 @@
                 @foreach($periods as $num => $time)
                     <tr>
                         <th class="px-2 py-1 text-[11px] text-gray-600 whitespace-nowrap">
-                            {{ Str::ordinal($num) }} - {{ $time['start'] }} | {{ $time['end'] }}
+                            {{ $num }} - {{ $time['start'] }} | {{ $time['end'] }}
                         </th>
                         @foreach($days as $day)
                             @php

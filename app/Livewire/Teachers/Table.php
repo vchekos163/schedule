@@ -20,7 +20,7 @@ class Table extends DataTableComponent
             ->whereHas('roles', fn ($q) => $q->where('name', 'teacher'))
             ->with(['teacher.subjects']) // ← load subjects through Teacher
             ->leftJoin('teachers', 'users.id', '=', 'teachers.user_id')
-            ->select('users.*', 'teachers.availability', 'teachers.max_lessons', 'teachers.max_gaps');
+            ->select('users.*', 'teachers.availability', 'teachers.max_lessons', 'teachers.max_days', 'teachers.max_gaps');
     }
 
     public function columns(): array
@@ -56,6 +56,10 @@ class Table extends DataTableComponent
 
             Column::make('Max Lessons/Day', 'max_lessons')
                 ->label(fn ($row) => $row->max_lessons ?? '-'),
+
+            Column::make('Max Days/Week', 'max_days')
+                ->label(fn ($row) => $row->max_days ?? '-')
+                ->sortable(),
 
             Column::make('Max Gaps', 'max_gaps')
                 ->label(fn ($row) => $row->max_gaps ?? '-'),

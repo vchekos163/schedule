@@ -35,7 +35,7 @@
             <tr>
                 <th class="px-2 py-1 text-xs cursor-pointer"
                     @click.stop.prevent="toggleRow({{ $num }})">
-                    {{ Str::ordinal($num) }} - {{ $time['start'] }} | {{ $time['end'] }}
+                    {{ $num }} - {{ $time['start'] }} | {{ $time['end'] }}
                 </th>
 
                 @foreach($days as $day)

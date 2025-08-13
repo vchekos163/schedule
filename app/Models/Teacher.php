@@ -8,7 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class Teacher extends Model
 {
     protected $fillable = [
-        'user_id', 'max_lessons', 'max_gaps'
+        'user_id',
+        'max_lessons',
+        'max_days',
+        'max_gaps',
     ];
 
     protected $casts = [

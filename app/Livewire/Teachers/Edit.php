@@ -49,6 +49,7 @@ class Edit extends Component implements HasForms
                 'quantity'   => $s->pivot->quantity ?? 1,
             ])->toArray(),
             'max_lessons'  => $this->teacher->max_lessons,
+            'max_days'  => $this->teacher->max_days,
             'max_gaps'     => $this->teacher->max_gaps,
             'availability' => $availability,
         ]);
@@ -85,6 +86,14 @@ class Edit extends Component implements HasForms
 
                 Forms\Components\TextInput::make('max_lessons')
                     ->numeric()
+                    ->minValue(1)
+                    ->maxValue(7)
+                    ->required(),
+
+                Forms\Components\TextInput::make('max_days')
+                ->numeric()
+                    ->minValue(1)
+                    ->maxValue(5)
                     ->required(),
 
                 Forms\Components\TextInput::make('max_gaps')
@@ -100,6 +109,7 @@ class Edit extends Component implements HasForms
 
         $this->teacher->user_id     = $this->user->id;
         $this->teacher->max_lessons = $data['max_lessons'] ?? null;
+        $this->teacher->max_days = $data['max_days'] ?? null;
         $this->teacher->max_gaps    = $data['max_gaps'] ?? null;
 
         // Compact availability: drop UNAVAILABLE
