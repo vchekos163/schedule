@@ -50,7 +50,7 @@ class Table extends DataTableComponent
                 ->label(fn($row) => view('components.availability-dropdown', [
                     'availability' => is_array($row->availability)
                         ? $row->availability
-                        : json_decode($row->availability, true) // for JSON storage
+                        : json_decode($row->availability, true)
                 ]))
                 ->html(),
 
