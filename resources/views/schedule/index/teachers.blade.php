@@ -3,30 +3,19 @@
 @section('content')
     <div class="container mx-auto p-4 flex gap-4">
         {{-- Left: Subject palette --}}
-        <div class="w-1/4" id="external-events">
+        <div class="w-1/4">
             <h1 class="text-lg font-semibold mb-3">
                 Teacher schedule{{ $teacher ? ': ' . ($teacher->user->name ?? 'Teacher') : '' }}
                 <span id="spinner" class="hidden">
                     <svg class="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor"
-                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z">
-                        </path>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                     </svg>
                 </span>
             </h1>
 
             <h2 class="text-sm font-semibold mb-2">Subjects</h2>
-            @foreach ($subjects as $subject)
-                <div
-                    class="fc-event cursor-pointer text-white px-2 py-1 rounded mb-2"
-                    data-subject-id="{{ $subject->id }}"
-                    style="background-color: {{ $subject->color ?? '#64748b' }}"
-                    title="{{ $subject->name }}"
-                >
-                    {{ $subject->code ?? $subject->name }}
-                </div>
-            @endforeach
+            <div id="external-events"></div>
         </div>
 
         {{-- Right: Calendar --}}
@@ -44,18 +33,8 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Make the subject list draggable
             const Draggable = FullCalendar.Draggable;
-            new Draggable(document.getElementById('external-events'), {
-                itemSelector: '.fc-event',
-                eventData: function (el) {
-                    return {
-                        title: el.innerText.trim(),
-                        color: el.style.backgroundColor,
-                        extendedProps: { subjectId: el.getAttribute('data-subject-id') }
-                    };
-                }
-            });
+            const eventsContainer = document.getElementById('external-events');
 
             const calendarEl = document.getElementById('calendar');
             const teacherId = calendarEl.getAttribute('data-teacher-id');
@@ -182,8 +161,11 @@
                     }
                 },
 
-                // Initial events
-                events: @json($events),
+                events: [],
+
+                datesSet(info) {
+                    loadWeekData(info.start);
+                },
 
                 // When a subject pill is dropped onto the calendar: create lesson for THIS teacher
                 eventReceive(info) {
@@ -205,6 +187,7 @@
                             if (data.reason)   info.event.setExtendedProp('reason', data.reason);
                             if (data.room)     info.event.setExtendedProp('room', data.room);
                             if (data.teachers) info.event.setExtendedProp('teachers', data.teachers);
+                            decreaseSubjectQuantity(subjectId);
                         })
                         .catch(() => info.event.remove());
                 },
@@ -272,6 +255,8 @@
             document.querySelector('.fc-save-button').style.display = 'none';
             document.querySelector('.fc-undo-button').style.display = 'none';
 
+            loadWeekData(calendar.view.activeStart);
+
             // Delegated actions for delete/edit
             document.addEventListener('click', function (e) {
                 if (e.target.matches('.delete-btn')) {
@@ -312,6 +297,55 @@
                         alert(err.message || 'Update failed');
                         event.revert();
                     });
+            }
+
+            function loadWeekData(dateObj) {
+                const monday = toLocalYMD(dateObj);
+                fetch(`/schedule/index/teachersData/teacher_id/${teacherId}/start/${monday}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        calendar.removeAllEvents();
+                        calendar.addEventSource(data.events || []);
+                        renderSubjects(data.subjects || []);
+                    });
+            }
+
+            function renderSubjects(subjects) {
+                eventsContainer.innerHTML = '';
+                subjects.forEach(sub => {
+                    const div = document.createElement('div');
+                    div.className = 'fc-event cursor-pointer text-white px-2 py-1 rounded mb-2';
+                    div.dataset.subjectId = sub.id;
+                    div.dataset.quantity = sub.quantity;
+                    div.dataset.label = sub.code || sub.name;
+                    div.style.backgroundColor = sub.color || '#64748b';
+                    div.title = sub.name;
+                    div.textContent = `${div.dataset.label} (${sub.quantity})`;
+                    eventsContainer.appendChild(div);
+                });
+
+                new Draggable(eventsContainer, {
+                    itemSelector: '.fc-event',
+                    eventData: function (el) {
+                        return {
+                            title: el.dataset.label,
+                            color: el.style.backgroundColor,
+                            extendedProps: { subjectId: el.getAttribute('data-subject-id') }
+                        };
+                    }
+                });
+            }
+
+            function decreaseSubjectQuantity(id) {
+                const el = eventsContainer.querySelector(`.fc-event[data-subject-id="${id}"]`);
+                if (!el) return;
+                let qty = parseInt(el.dataset.quantity, 10) - 1;
+                if (qty <= 0) {
+                    el.remove();
+                } else {
+                    el.dataset.quantity = qty;
+                    el.textContent = `${el.dataset.label} (${qty})`;
+                }
             }
 
             function toLocalYMD(d) {

@@ -49,18 +49,65 @@ class IndexController extends Controller
         ]);
     }
 
-    public function teachers(int $teacher_id = null)
+    public function teachers(?int $teacher_id = null)
     {
+        $teacher = $teacher_id ? Teacher::findOrFail($teacher_id) : null;
+
+        return view('schedule.index.teachers', [
+            'teacher' => $teacher,
+        ]);
+    }
+
+    public function teachersData(string $start, ?int $teacher_id = null)
+    {
+        $startDate = Carbon::parse($start)->startOfWeek();
+        $endDate   = (clone $startDate)->endOfWeek();
+
         if ($teacher_id) {
-            $teacher = Teacher::findOrFail($teacher_id);
+            $teacher = Teacher::with('subjects')->findOrFail($teacher_id);
+
             $lessons = $teacher->lessons()
                 ->with(['subject', 'room', 'teachers.user'])
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
                 ->get();
-            $subjects = $teacher->subjects()->with('teachers.user')->get();
+
+            $subjects = $teacher->subjects->map(function ($subject) use ($teacher, $startDate, $endDate) {
+                $lessonsCount = $teacher->lessons()
+                    ->where('subject_id', $subject->id)
+                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->count();
+
+                $remaining = max(0, ($subject->pivot->quantity ?? 0) - $lessonsCount);
+
+                return [
+                    'id'       => $subject->id,
+                    'name'     => $subject->name,
+                    'code'     => $subject->code,
+                    'color'    => $subject->color,
+                    'quantity' => $remaining,
+                ];
+            })->filter(fn ($row) => $row['quantity'] > 0)->values();
         } else {
-            $teacher = null;
-            $lessons = Lesson::with(['subject', 'room', 'teachers.user'])->get();
-            $subjects = Subject::with('teachers.user')->get();
+            $lessons = Lesson::with(['subject', 'room', 'teachers.user'])
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->get();
+
+            $subjects = Subject::with('teachers')->get()->map(function ($subject) use ($startDate, $endDate) {
+                $lessonsCount = Lesson::where('subject_id', $subject->id)
+                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->count();
+
+                $totalQty = $subject->teachers->sum(fn ($t) => $t->pivot->quantity ?? 0);
+                $remaining = max(0, $totalQty - $lessonsCount);
+
+                return [
+                    'id'       => $subject->id,
+                    'name'     => $subject->name,
+                    'code'     => $subject->code,
+                    'color'    => $subject->color,
+                    'quantity' => $remaining,
+                ];
+            })->filter(fn ($row) => $row['quantity'] > 0)->values();
         }
 
         $events = $lessons->map(function ($lesson) {
@@ -80,8 +127,7 @@ class IndexController extends Controller
             ];
         });
 
-        return view('schedule.index.teachers', [
-            'teacher' => $teacher,
+        return response()->json([
             'events' => $events,
             'subjects' => $subjects,
         ]);
