@@ -23,20 +23,22 @@ class Edit extends Component implements HasForms
     public array $data = [];
 
     /** For defaults only (not bound) */
-    private array $days  = ['monday','tuesday','wednesday','thursday','friday'];
-    private array $hours = [9,10,11,12,13,14,15,16];
+    private array $days    = ['monday','tuesday','wednesday','thursday','friday'];
+    private array $periods = [];
 
     public function mount(int $userId): void
     {
         $this->user = User::findOrFail($userId);
         $this->teacher = Teacher::firstOrNew(['user_id' => $userId]);
 
+        $this->periods = array_keys(config('periods', []));
+
         // Build initial availability matrix
         $availability = [];
         foreach ($this->days as $day) {
-            foreach ($this->hours as $hour) {
-                $existing = $this->teacher->availability[$day][$hour] ?? null;
-                $availability[$day][$hour] = $existing ?? 'UNAVAILABLE';
+            foreach ($this->periods as $period) {
+                $existing = $this->teacher->availability[$day][$period] ?? null;
+                $availability[$day][$period] = $existing ?? 'UNAVAILABLE';
             }
         }
 

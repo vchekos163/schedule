@@ -1,7 +1,8 @@
 @php
+    use Illuminate\Support\Str;
     // Local constants for rendering
-    $days  = ['monday','tuesday','wednesday','thursday','friday'];
-    $hours = [9,10,11,12,13,14,15,16];
+    $days    = ['monday','tuesday','wednesday','thursday','friday'];
+    $periods = config('periods');
 @endphp
 
 <div
@@ -30,19 +31,19 @@
         </tr>
         </thead>
         <tbody>
-        @foreach($hours as $hour)
+        @foreach($periods as $num => $time)
             <tr>
                 <th class="px-2 py-1 text-xs cursor-pointer"
-                    @click.stop.prevent="toggleRow({{ $hour }})">
-                    {{ sprintf('%02d:00', $hour) }}
+                    @click.stop.prevent="toggleRow({{ $num }})">
+                    {{ Str::ordinal($num) }} - {{ $time['start'] }} | {{ $time['end'] }}
                 </th>
 
                 @foreach($days as $day)
                     <td
                         class="cell border w-16 h-8 text-center cursor-pointer"
-                        :class="stateClass(state('{{ $day }}', {{ $hour }}))"
-                        :title="state('{{ $day }}', {{ $hour }})"
-                        @click.stop.prevent="cycle('{{ $day }}', {{ $hour }})"
+                        :class="stateClass(state('{{ $day }}', {{ $num }}))"
+                        :title="state('{{ $day }}', {{ $num }})"
+                        @click.stop.prevent="cycle('{{ $day }}', {{ $num }})"
                     ></td>
                 @endforeach
             </tr>
@@ -67,8 +68,8 @@
 
     <script>
         function availabilityGrid(model) {
-            const DAYS  = ['monday','tuesday','wednesday','thursday','friday'];
-            const HOURS = [9,10,11,12,13,14,15,16];
+            const DAYS    = ['monday','tuesday','wednesday','thursday','friday'];
+            const PERIODS = [1,2,3,4,5,6,7];
 
             return {
                 // Keep the entangled proxy (do NOT replace it with {})
@@ -83,36 +84,36 @@
                     }
                     for (const d of DAYS) {
                         if (!this.matrix[d]) this.matrix[d] = {};
-                        for (const h of HOURS) {
-                            if (!this.matrix[d][h]) this.matrix[d][h] = 'UNAVAILABLE';
+                        for (const p of PERIODS) {
+                            if (!this.matrix[d][p]) this.matrix[d][p] = 'UNAVAILABLE';
                         }
                     }
                 },
 
-                state(day, hour) {
+                state(day, period) {
                     const row = this.matrix?.[day];
-                    return (row && row[hour]) ? row[hour] : 'UNAVAILABLE';
+                    return (row && row[period]) ? row[period] : 'UNAVAILABLE';
                 },
 
-                set(day, hour, val) {
+                set(day, period, val) {
                     if (!this.matrix[day]) this.matrix[day] = {};
-                    this.matrix[day][hour] = val;
+                    this.matrix[day][period] = val;
                     // no reassignment — keep Livewire proxy alive
                 },
 
-                cycle(day, hour) {
-                    const cur = this.state(day, hour);
+                cycle(day, period) {
+                    const cur = this.state(day, period);
                     const i   = this.states.indexOf(cur);
                     const next = this.states[(i + 1) % this.states.length];
-                    this.set(day, hour, next);
+                    this.set(day, period, next);
                 },
 
-                toggleRow(hour) {
-                    for (const d of Object.keys(this.matrix)) this.cycle(d, hour);
+                toggleRow(period) {
+                    for (const d of Object.keys(this.matrix)) this.cycle(d, period);
                 },
 
                 toggleColumn(day) {
-                    for (const h of Object.keys(this.matrix[day] || {})) this.cycle(day, Number(h));
+                    for (const p of Object.keys(this.matrix[day] || {})) this.cycle(day, Number(p));
                 },
 
                 stateClass(s) {

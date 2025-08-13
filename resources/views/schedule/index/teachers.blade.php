@@ -65,7 +65,7 @@
 
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
-                slotDuration: '00:15:00',
+                slotDuration: '00:05:00',
                 slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
                 nowIndicator: true,
                 firstDay: 1,         // Monday
@@ -73,7 +73,7 @@
                 allDaySlot: false,
                 scrollTime: '09:00:00',
                 slotMinTime: '09:00:00',
-                slotMaxTime: '15:00:00',
+                slotMaxTime: '15:30:00',
                 defaultTimedEventDuration: '00:45:00',
                 timeZone: 'local',   // avoid UTC shifts
                 editable: true,
