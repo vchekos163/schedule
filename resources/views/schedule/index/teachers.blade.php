@@ -41,6 +41,7 @@
 
             let originalEvents = null;
             let generatedLessons = null;
+            let subjectDraggable = null;
 
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
@@ -316,6 +317,10 @@
 
             function renderSubjects(subjects) {
                 eventsContainer.innerHTML = '';
+                if (subjectDraggable) {
+                    subjectDraggable.destroy();
+                    subjectDraggable = null;
+                }
                 subjects.forEach(sub => {
                     const div = document.createElement('div');
                     div.className = 'fc-event cursor-pointer text-white px-2 py-1 rounded mb-2';
@@ -328,7 +333,7 @@
                     eventsContainer.appendChild(div);
                 });
 
-                new Draggable(eventsContainer, {
+                subjectDraggable = new Draggable(eventsContainer, {
                     itemSelector: '.fc-event',
                     eventData: function (el) {
                         return {
