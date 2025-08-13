@@ -2,20 +2,21 @@
     // $availability is passed in from Table::columns() via view()
     // If this file is called with $row, adjust to extract it before this block.
 
+    use Illuminate\Support\Str;
     $availability = $availability ?? [];
 
-    // Days/hours you want to render
-    $days  = ['monday','tuesday','wednesday','thursday','friday'];
-    $hours = [9,10,11,12,13,14,15,16];
+    // Days/periods you want to render
+    $days    = ['monday','tuesday','wednesday','thursday','friday'];
+    $periods = config('periods');
 
     // Fill missing keys but keep existing states
     foreach ($days as $day) {
         if (!isset($availability[$day])) {
             $availability[$day] = [];
         }
-        foreach ($hours as $hour) {
-            if (!isset($availability[$day][$hour])) {
-                $availability[$day][$hour] = 'UNAVAILABLE';
+        foreach ($periods as $num => $time) {
+            if (!isset($availability[$day][$num])) {
+                $availability[$day][$num] = 'UNAVAILABLE';
             }
         }
     }
@@ -55,14 +56,14 @@
                 </tr>
                 </thead>
                 <tbody>
-                @foreach($hours as $hour)
+                @foreach($periods as $num => $time)
                     <tr>
                         <th class="px-2 py-1 text-[11px] text-gray-600 whitespace-nowrap">
-                            {{ sprintf('%02d:00', $hour) }}
+                            {{ Str::ordinal($num) }} - {{ $time['start'] }} | {{ $time['end'] }}
                         </th>
                         @foreach($days as $day)
                             @php
-                                $state = strtoupper(trim($availability[$day][$hour] ?? 'UNAVAILABLE'));
+                                $state = strtoupper(trim($availability[$day][$num] ?? 'UNAVAILABLE'));
                                 $map = [
                                     'CLASS'       => 'state-class',
                                     'ONLINE'      => 'state-online',

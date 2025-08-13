@@ -53,14 +53,8 @@ class LessonController extends Controller
 
     public function autoFillTeacher(int $teacher_id, string $start)
     {
-        // constants to match your calendar
-        $dayStart = '09:00';
-        $dayEnd   = '15:00';       // wrap when start time reaches >= 15:00
-        $blockMin = 45;            // lesson duration
-        $gapMin   = 15;            // gap
-        $stepMin  = $blockMin + $gapMin; // 60 min between lesson starts
-
-        $room = Room::firstOrFail();
+        $periods = config('periods');
+        $room    = Room::firstOrFail();
 
         // next Monday from the passed date
         $weekStartDate = Carbon::parse($start)
@@ -69,59 +63,54 @@ class LessonController extends Controller
             ->toDateString();
 
         if ($teacher_id === 0) {
-            // all teachers
-            Teacher::with('subjects')->chunkById(100, function ($teachers) use ($weekStartDate, $dayStart, $dayEnd, $blockMin, $stepMin, $room) {
+            Teacher::with('subjects')->chunkById(100, function ($teachers) use ($weekStartDate, $periods, $room) {
                 foreach ($teachers as $teacher) {
-                    $this->fillSimpleForTeacher($teacher, $weekStartDate, $dayStart, $dayEnd, $blockMin, $stepMin, $room);
+                    $this->fillSimpleForTeacher($teacher, $weekStartDate, $periods, $room);
                 }
             });
         } else {
-            // single teacher
             $teacher = Teacher::with('subjects')->findOrFail($teacher_id);
-            $this->fillSimpleForTeacher($teacher, $weekStartDate, $dayStart, $dayEnd, $blockMin, $stepMin, $room);
+            $this->fillSimpleForTeacher($teacher, $weekStartDate, $periods, $room);
         }
 
         return redirect()->back()->with('message', 'Lessons generated.');
     }
 
     /**
-     * Generate 45-min lessons with 15-min gaps, Mon–Fri 09:00–15:00, no availability checks.
+     * Generate lessons based on fixed periods, Mon–Fri, no availability checks.
      */
-    private function fillSimpleForTeacher(Teacher $teacher, string $weekStartDate, string $dayStart, string $dayEnd, int $blockMin, int $stepMin, Room $room): void
+    private function fillSimpleForTeacher(Teacher $teacher, string $weekStartDate, array $periods, Room $room): void
     {
-        // start Monday 09:00 for this teacher
-        $cursorDate = $weekStartDate;
-        $cursorTime = Carbon::createFromFormat('H:i', $dayStart);
+        $cursorDate  = $weekStartDate;
+        $periodKeys  = array_keys($periods);
+        $periodIndex = 0;
 
         foreach ($teacher->subjects as $subject) {
             $qty = max(1, (int) ($subject->pivot->quantity ?? 1));
 
             for ($i = 0; $i < $qty; $i++) {
-                // wrap to next weekday if past end of day
-                if ($cursorTime->format('H:i') >= $dayEnd) {
+                if ($periodIndex >= count($periodKeys)) {
                     $cursorDate = Carbon::parse($cursorDate)->addDay()->toDateString();
-                    // skip weekends
                     while (in_array(Carbon::parse($cursorDate)->dayOfWeekIso, [6, 7])) {
                         $cursorDate = Carbon::parse($cursorDate)->addDay()->toDateString();
                     }
-                    $cursorTime = Carbon::createFromFormat('H:i', $dayStart);
+                    $periodIndex = 0;
                 }
 
-                $slotStart = $cursorTime->copy();
-                $slotEnd   = $cursorTime->copy()->addMinutes($blockMin);
+                $p        = $periodKeys[$periodIndex];
+                $slotStart = $periods[$p]['start'];
+                $slotEnd   = $periods[$p]['end'];
 
                 $lesson = Lesson::create([
                     'subject_id' => $subject->id,
                     'room_id'    => $room->id,
                     'date'       => $cursorDate,
-                    'start_time' => $slotStart->format('H:i'),
-                    'end_time'   => $slotEnd->format('H:i'),
+                    'start_time' => $slotStart,
+                    'end_time'   => $slotEnd,
                 ]);
 
                 $lesson->teachers()->attach($teacher->id);
-
-                // advance by duration + gap (45 + 15)
-                $cursorTime->addMinutes($stepMin);
+                $periodIndex++;
             }
         }
     }

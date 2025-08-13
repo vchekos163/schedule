@@ -19,7 +19,7 @@ class ScheduleGenerator
     {
         $payload = [
             'current_schedule' => $this->currentSchedule,
-            'rooms' => $this->rooms,
+            'rooms'            => $this->rooms,
         ];
 
         $prompt = $this->buildPrompt($payload);
@@ -41,9 +41,15 @@ Rearrange ALL the lessons to:
 - Analyse students subjects, and their load
 - Choose rooms that match capacity and features so they are not overfilled
 - Write brief reasons why this lesson on this place
-- Note that day starts at 9:00 and ends at 15:00
+- Use these fixed periods (start | end):
+  1st lesson - 09:00 | 09:45
+  2nd lesson - 09:50 | 10:35
+  3rd lesson - 10:50 | 11:35
+  4th lesson - 11:40 | 12:25
+  5th lesson - 13:00 | 13:45
+  6th lesson - 13:50 | 14:35
+  7th lesson - 14:40 | 15:25
 - Week only from monday to friday
-- Lesson always lasts 45 minutes with 15 minute gaps
 
 Return only valid JSON array of lessons:
 [

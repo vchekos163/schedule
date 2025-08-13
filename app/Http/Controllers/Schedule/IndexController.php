@@ -258,9 +258,12 @@ class IndexController extends Controller
             $shortDay = $dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
             $times = [];
             if (is_array($slots)) {
-                foreach ($slots as $hour => $state) {
+                foreach ($slots as $period => $state) {
                     if (strtoupper($state) !== 'UNAVAILABLE') {
-                        $times[] = sprintf('%02d:00', (int)$hour);
+                        $start = config("periods.$period.start");
+                        if ($start) {
+                            $times[] = $start;
+                        }
                     }
                 }
             }
