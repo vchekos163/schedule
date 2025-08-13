@@ -29,7 +29,7 @@ class Table extends DataTableComponent
             Column::make('Name', 'name')->sortable()->searchable(),
 
             Column::make('Schedule')
-                ->label(fn($row) => view('components.schedule-link', ['link' => '/schedule/index/teacher/teacher_id/'.$row->teacher->id]))
+                ->label(fn($row) => view('components.schedule-link', ['link' => '/schedule/index/teachers/teacher_id/'.$row->teacher->id]))
                 ->html(),
 
             Column::make('Subjects')
