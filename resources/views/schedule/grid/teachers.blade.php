@@ -46,7 +46,7 @@
                           Period {{ $num }}<br>{{ $time['start'] }} | {{ $time['end'] }}
                       </th>
                       @for($day = 1; $day <= 5; $day++)
-                          <td class="border h-16 align-top" data-period="{{ $num }}" data-day="{{ $day }}"></td>
+                          <td class="border h-16" data-period="{{ $num }}" data-day="{{ $day }}" style="vertical-align: top;"></td>
                       @endfor
                   </tr>
                   @endforeach
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = formatYMD(currentMonday);
         document.getElementById('week-label').textContent = start;
 
-        fetch(`/schedule/index/teachersData/teacher_id/${teacherId}/start/${start}`)
+        fetch(`/schedule/grid/teachersData/teacher_id/${teacherId}/start/${start}`)
             .then(r => r.json())
             .then(data => {
                 renderSubjects(data.subjects || []);
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lesson.dataset.id=ev.id;
 
         const delBtn = document.createElement('button');
-        delBtn.className = 'delete-btn absolute top-0 right-0 text-xs text-white hover:text-red-300';
+        delBtn.className = 'delete-btn absolute top-0 right-0 text-xl text-white hover:text-red-300';
         delBtn.dataset.id = ev.id;
         delBtn.textContent = '×';
         lesson.appendChild(delBtn);
@@ -154,8 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
         reasonBtn.className = 'reason-btn cursor-pointer text-white text-xs relative';
         reasonBtn.textContent = '❓';
         const tooltip = document.createElement('div');
-        tooltip.className = 'reason-tooltip absolute left-4 top-4 text-red-600 bg-white border border-red-300 px-3 py-2 text-xs rounded shadow max-w-xs w-64 hidden';
+        tooltip.className = 'reason-tooltip absolute z-50 left-4 top-4 text-red-600 bg-white border border-red-300 px-3 py-2 text-xs rounded shadow hidden';
         tooltip.textContent = ev.reason || 'No reason provided.';
+        tooltip.style.width='14rem';
         reasonBtn.appendChild(tooltip);
         reasonBtn.addEventListener('click', () => {
             tooltip.classList.toggle('hidden');
