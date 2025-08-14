@@ -27,6 +27,9 @@
                     class="grid-head-button">
                 Fill week
             </button>
+            <button id="optimize" class="grid-head-button">Optimize</button>
+            <button id="save" class="grid-head-button hidden">Save</button>
+            <button id="undo" class="grid-head-button hidden">Undo</button>
         </div>
         <table id="schedule-table" class="w-full table-fixed border">
             <thead>
@@ -64,6 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const subjectPalette = document.getElementById('subject-palette');
     let currentMonday = startOfWeek(new Date());
     let dragType = null;
+    const periods = @json($periods);
+    const timeToPeriod = {};
+    Object.entries(periods).forEach(([p, t]) => { timeToPeriod[t.start] = Number(p); });
+    let originalEvents = null;
+    let generatedLessons = null;
 
     function startOfWeek(d){
         const date = new Date(d);
@@ -80,6 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadWeek(){
         const spinner = document.getElementById('spinner');
         spinner.classList.remove('hidden'); // show spinner
+        originalEvents = null;
+        generatedLessons = null;
+        document.getElementById('save').classList.add('hidden');
+        document.getElementById('undo').classList.add('hidden');
 
         const start = formatYMD(currentMonday);
         document.getElementById('week-label').textContent = start;
@@ -176,6 +188,30 @@ document.addEventListener('DOMContentLoaded', () => {
         cell.appendChild(lesson);
     }
 
+    function getCurrentEvents(){
+        const events = [];
+        table.querySelectorAll('td[data-day][data-period]').forEach(cell => {
+            const day = parseInt(cell.dataset.day,10);
+            const period = cell.dataset.period;
+            const date = new Date(currentMonday);
+            date.setDate(date.getDate() + (day - 1));
+            const ymd = formatYMD(date);
+            cell.querySelectorAll('.lesson').forEach(lesson => {
+                events.push({
+                    id: lesson.dataset.id,
+                    title: lesson.querySelector('.font-semibold')?.textContent || '',
+                    color: lesson.style.backgroundColor || '#64748b',
+                    date: ymd,
+                    period: period,
+                    reason: lesson.querySelector('.reason-tooltip')?.textContent || '',
+                    room: lesson.querySelector('.text-sm')?.textContent || '',
+                    teachers: lesson.querySelector('.text-xs')?.textContent || '',
+                });
+            });
+        });
+        return events;
+    }
+
     subjectPalette.addEventListener('dragstart', e=>{
         if(e.target.classList.contains('subject-item')){
             dragType = 'subject';
@@ -270,6 +306,81 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('fill-week').addEventListener('click',()=>{
         const monday = formatYMD(currentMonday);
         window.location.href = `/schedule/lesson/autoFillTeacher/teacher_id/${teacherId}/start/${monday}`;
+    });
+
+    document.getElementById('optimize').addEventListener('click', () => {
+        const monday = formatYMD(currentMonday);
+        const spinner = document.getElementById('spinner');
+        spinner.classList.remove('hidden');
+        originalEvents = getCurrentEvents();
+        fetch(`/schedule/index/optimizeTeachers/start/${monday}`)
+            .then(res => res.json())
+            .then(data => {
+                const jobId = data.jobId;
+                if (!jobId) throw new Error('No job id');
+                const poll = setInterval(() => {
+                    fetch(`/schedule/index/getOptimizedTeachers/jobId/${jobId}`)
+                        .then(r => r.json())
+                        .then(result => {
+                            if (result.status !== 'pending') {
+                                clearInterval(poll);
+                                generatedLessons = result.lessons || [];
+                                const events = (result.events || []).map(ev => {
+                                    const [date, time] = ev.start.split('T');
+                                    const period = timeToPeriod[time.slice(0,5)];
+                                    return {
+                                        id: ev.id,
+                                        title: ev.title,
+                                        color: ev.color,
+                                        date,
+                                        period,
+                                        reason: ev.extendedProps?.reason || '',
+                                        room: ev.extendedProps?.room || '',
+                                        teachers: ev.extendedProps?.teachers || '',
+                                    };
+                                }).filter(e => e.period);
+                                clearLessons();
+                                events.forEach(addLessonToTable);
+                                document.getElementById('save').classList.remove('hidden');
+                                document.getElementById('undo').classList.remove('hidden');
+                                spinner.classList.add('hidden');
+                            }
+                        })
+                        .catch(() => {
+                            clearInterval(poll);
+                            spinner.classList.add('hidden');
+                            alert('Optimization failed');
+                        });
+                }, 10000);
+            })
+            .catch(() => {
+                spinner.classList.add('hidden');
+                alert('Optimization failed');
+            });
+    });
+
+    document.getElementById('save').addEventListener('click', () => {
+        if (!generatedLessons) return;
+        fetch('/schedule/index/saveOptimizedTeachers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            },
+            body: JSON.stringify({ lessons: generatedLessons }),
+        })
+            .then(() => window.location.reload())
+            .catch(() => alert('Failed to save schedule'));
+    });
+
+    document.getElementById('undo').addEventListener('click', () => {
+        if (!originalEvents) return;
+        clearLessons();
+        originalEvents.forEach(addLessonToTable);
+        generatedLessons = null;
+        originalEvents = null;
+        document.getElementById('save').classList.add('hidden');
+        document.getElementById('undo').classList.add('hidden');
     });
 
     loadWeek();
