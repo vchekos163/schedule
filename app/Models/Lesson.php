@@ -10,6 +10,7 @@ class Lesson extends Model
         'subject_id',
         'room_id',
         'date',
+        'period',
         'start_time',
         'end_time',
     ];

@@ -14,21 +14,22 @@ use Carbon\Carbon;
 class LessonController extends Controller
 {
 
-    public function createFromSubject($subject_id, $date, $start_time)
+    public function createFromSubject($subject_id, $date, $period)
     {
         // Load teachers + their users for the title
         $subject = Subject::with('teachers.user')->findOrFail($subject_id);
 
         $room = Room::first();
 
-        $end_time = Carbon::createFromFormat('H:i', $start_time)
-            ->addMinutes(45)
-            ->format('H:i');
+        $slot = config("periods.$period");
+        $start_time = $slot['start'];
+        $end_time   = $slot['end'];
 
         $lesson = Lesson::create([
             'subject_id' => $subject_id,
             'room_id' => $room->id,
             'date' => $date,
+            'period' => $period,
             'start_time' => $start_time,
             'end_time' => $end_time,
         ]);
@@ -39,7 +40,7 @@ class LessonController extends Controller
         // Avoid duplicates if lesson already has some teachers
         $lesson->teachers()->syncWithoutDetaching($teacherIds);
 
-        return response()->json(        [
+        return response()->json([
             'id' => $lesson->id,
             'title' => $lesson->subject->code,
             'color' => $lesson->subject->color,
@@ -47,6 +48,8 @@ class LessonController extends Controller
             'teachers' => $subject->teachers
                 ->map(fn($teacher) => $teacher->user->name)
                 ->join(', '),
+            'date' => $lesson->date,
+            'period' => $lesson->period,
         ]);
     }
 
@@ -104,6 +107,7 @@ class LessonController extends Controller
                     'subject_id' => $subject->id,
                     'room_id'    => $room->id,
                     'date'       => $cursorDate,
+                    'period'     => $p,
                     'start_time' => $slotStart,
                     'end_time'   => $slotEnd,
                 ]);
@@ -114,14 +118,17 @@ class LessonController extends Controller
         }
     }
 
-    public function update(int $lesson_id, $date, $start_time, $end_time)
+    public function update(int $lesson_id, $date, $period)
     {
         $lesson = Lesson::findOrFail($lesson_id);
 
+        $slot = config("periods.$period");
+
         $lesson->update([
             'date' => $date,
-            'start_time' => $start_time,
-            'end_time' => $end_time,
+            'period' => $period,
+            'start_time' => $slot['start'],
+            'end_time' => $slot['end'],
         ]);
 
         return response()->json([
