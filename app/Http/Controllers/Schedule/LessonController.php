@@ -96,7 +96,6 @@ class LessonController extends Controller
         // next Monday from the passed date
         $weekStartDate = Carbon::parse($start)
             ->startOfWeek(Carbon::MONDAY)
-            ->addWeek()
             ->toDateString();
 
         if ($teacher_id === 0) {
