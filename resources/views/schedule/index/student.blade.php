@@ -31,6 +31,12 @@
 
 @push('styles')
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+    <style>
+        .fc-event,
+        .fc-event-main {
+            overflow: visible !important;
+        }
+    </style>
 @endpush
 
 @push('scripts')
@@ -40,6 +46,7 @@
         document.addEventListener('DOMContentLoaded', function () {
             calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
                 initialView: 'timeGridWeek',
+                height: '75vh',
                 slotDuration: '00:05:00',
                 slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
                 allDaySlot: false,
@@ -94,9 +101,13 @@
                     tooltip.style.z = '2000';
                     tooltip.textContent = arg.event.extendedProps.reason || 'No reason provided.';
 
-                    // Toggle display
+                    // Toggle display and bring lesson to front
                     reasonBtn.addEventListener('click', () => {
                         tooltip.classList.toggle('hidden');
+                        const eventEl = reasonBtn.closest('.fc-event');
+                        if (eventEl) {
+                            eventEl.style.zIndex = tooltip.classList.contains('hidden') ? '' : '9999';
+                        }
                     });
 
                     reasonBtn.appendChild(tooltip);

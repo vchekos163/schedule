@@ -27,6 +27,12 @@
 
 @push('styles')
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+    <style>
+        .fc-event,
+        .fc-event-main {
+            overflow: visible !important;
+        }
+    </style>
 @endpush
 
 @push('scripts')
@@ -45,6 +51,7 @@
 
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
+                height: '75vh',
                 slotDuration: '00:05:00',
                 slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
                 nowIndicator: true,
@@ -213,7 +220,14 @@
                     tooltip.className = 'absolute left-4 top-6 text-red-600 bg-white border border-red-300 px-3 py-2 text-sm rounded shadow max-w-xs w-64 hidden';
                     tooltip.style.zIndex = '9999';
                     tooltip.textContent = arg.event.extendedProps.reason || 'No reason provided.';
-                    reasonBtn.addEventListener('click', () => tooltip.classList.toggle('hidden'));
+                    // Toggle display and bring lesson to front
+                    reasonBtn.addEventListener('click', () => {
+                        tooltip.classList.toggle('hidden');
+                        const eventEl = reasonBtn.closest('.fc-event');
+                        if (eventEl) {
+                            eventEl.style.zIndex = tooltip.classList.contains('hidden') ? '' : '9999';
+                        }
+                    });
                     reasonBtn.appendChild(tooltip);
 
                     const details = document.createElement('div');
