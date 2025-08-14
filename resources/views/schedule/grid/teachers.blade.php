@@ -136,11 +136,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const cell = table.querySelector(`td[data-day="${day}"][data-period="${period}"]`);
         if(!cell) return;
         const lesson=document.createElement('div');
-        lesson.className='lesson text-xs text-white px-1 py-1 rounded mb-1';
+        lesson.className='lesson relative text-xs text-white px-1 py-1 rounded mb-1';
         lesson.draggable=true;
         lesson.style.backgroundColor=ev.color || '#64748b';
         lesson.dataset.id=ev.id;
-        lesson.innerHTML = `<span>${ev.title}</span> <button class="delete-btn ml-1" data-id="${ev.id}">x</button>`;
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn absolute top-0 right-0 text-xs text-white hover:text-red-300';
+        delBtn.dataset.id = ev.id;
+        delBtn.textContent = '×';
+        lesson.appendChild(delBtn);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'flex items-start gap-1';
+
+        const reasonBtn = document.createElement('span');
+        reasonBtn.className = 'reason-btn cursor-pointer text-white text-xs relative';
+        reasonBtn.textContent = '❓';
+        const tooltip = document.createElement('div');
+        tooltip.className = 'reason-tooltip absolute left-4 top-4 text-red-600 bg-white border border-red-300 px-3 py-2 text-xs rounded shadow max-w-xs w-64 hidden';
+        tooltip.textContent = ev.reason || 'No reason provided.';
+        reasonBtn.appendChild(tooltip);
+        reasonBtn.addEventListener('click', () => {
+            tooltip.classList.toggle('hidden');
+        });
+
+        const details = document.createElement('div');
+        details.innerHTML = `
+            <div class="font-semibold">${ev.title || ''}</div>
+            <div class="text-sm text-gray-200">${ev.room || ''}</div>
+            <div class="text-xs text-gray-300">${ev.teachers || ''}</div>
+        `;
+
+        wrap.appendChild(reasonBtn);
+        wrap.appendChild(details);
+        lesson.appendChild(wrap);
+
         cell.appendChild(lesson);
     }
 
@@ -170,7 +201,16 @@ document.addEventListener('DOMContentLoaded', () => {
               fetch(`/schedule/lesson/createFromSubjectPeriod/subject_id/${subjectId}/date/${ymd}/period/${period}`)
                   .then(r=>r.json())
                   .then(data=>{
-                      addLessonToTable({id:data.id,title:data.title,color:data.color,date:ymd,period:period});
+                      addLessonToTable({
+                          id:data.id,
+                          title:data.title,
+                          color:data.color,
+                          date:ymd,
+                          period:period,
+                          reason:data.reason,
+                          room:data.room,
+                          teachers:data.teachers
+                      });
                       decreaseSubjectQuantity(subjectId);
                   });
           } else if (dragType === 'lesson') {
@@ -213,6 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
     table.addEventListener('click', e=>{
         if(e.target.classList.contains('delete-btn')){
             const id = e.target.dataset.id;
+            if(!confirm('Delete this lesson?')) return;
             fetch(`/schedule/lesson/delete/lesson_id/${id}`).then(()=> loadWeek());
         }
     });
