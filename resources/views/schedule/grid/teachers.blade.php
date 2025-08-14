@@ -4,10 +4,10 @@
 <div class="container mx-auto p-4 flex gap-4">
     {{-- Left: Subject palette --}}
     <div class="w-1/4">
-        <h1 class="text-lg font-semibold mb-3">
+        <h1 class="text-lg font-semibold mb-3 flex items-center gap-2">
             Teacher schedule{{ $teacher ? ': ' . ($teacher->user->name ?? 'Teacher') : '' }}
             <span id="spinner" class="hidden">
-                <svg class="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                 </svg>
@@ -19,27 +19,32 @@
 
     {{-- Right: Grid --}}
     <div class="flex-1">
-        <div class="flex items-center mb-2 gap-2">
+        <div class="flex items-center justify-center mb-2 gap-2">
             <button id="prev-week" class="px-2 py-1 bg-gray-200 rounded">Prev</button>
             <div id="week-label" class="font-semibold"></div>
             <button id="next-week" class="px-2 py-1 bg-gray-200 rounded">Next</button>
-            <button id="fill-week" class="ml-auto px-2 py-1 bg-blue-500 text-white rounded">Fill week</button>
+            <button id="fill-week"
+                    class="grid-head-button">
+                Fill week
+            </button>
         </div>
         <table id="schedule-table" class="w-full table-fixed border">
             <thead>
-                <tr>
-                    <th class="w-24"></th>
-                    <th class="text-center">Mon</th>
-                    <th class="text-center">Tue</th>
-                    <th class="text-center">Wed</th>
-                    <th class="text-center">Thu</th>
-                    <th class="text-center">Fri</th>
-                </tr>
+            <tr>
+                <th class="w-1/6 border"></th>
+                <th class="w-1/6 text-center border" data-day-header="1">Mon</th>
+                <th class="w-1/6 text-center border" data-day-header="2">Tue</th>
+                <th class="w-1/6 text-center border" data-day-header="3">Wed</th>
+                <th class="w-1/6 text-center border" data-day-header="4">Thu</th>
+                <th class="w-1/6 text-center border" data-day-header="5">Fri</th>
+            </tr>
             </thead>
             <tbody>
-                  @foreach($periods as $num => $period)
+                  @foreach($periods as $num => $time)
                   <tr>
-                      <th class="border px-2 py-1 text-sm">Period {{ $num }}</th>
+                      <th class="border px-2 py-1 text-sm whitespace-normal leading-tight" style="width: 7rem;">
+                          Period {{ $num }}<br>{{ $time['start'] }} | {{ $time['end'] }}
+                      </th>
                       @for($day = 1; $day <= 5; $day++)
                           <td class="border h-16 align-top" data-period="{{ $num }}" data-day="{{ $day }}"></td>
                       @endfor
@@ -73,16 +78,39 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${y}-${m}-${da}`;
     }
     function loadWeek(){
+        const spinner = document.getElementById('spinner');
+        spinner.classList.remove('hidden'); // show spinner
+
         const start = formatYMD(currentMonday);
         document.getElementById('week-label').textContent = start;
+
         fetch(`/schedule/index/teachersData/teacher_id/${teacherId}/start/${start}`)
-            .then(r=>r.json())
-            .then(data=>{
+            .then(r => r.json())
+            .then(data => {
                 renderSubjects(data.subjects || []);
                 clearLessons();
-                (data.events||[]).forEach(addLessonToTable);
+                (data.events || []).forEach(addLessonToTable);
+                // Update weekday headers with date
+                for (let day = 1; day <= 5; day++) {
+                    const header = document.querySelector(`[data-day-header="${day}"]`);
+                    if (header) {
+                        const date = new Date(currentMonday);
+                        date.setDate(date.getDate() + (day - 1));
+                        const options = { month: 'short', day: 'numeric' };
+                        const dateStr = date.toLocaleDateString(undefined, options);
+                        const weekday = header.textContent.split(' ')[0]; // original name
+                        header.textContent = `${weekday} ${dateStr}`;
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Error loading week:', err);
+            })
+            .finally(() => {
+                spinner.classList.add('hidden'); // hide spinner
             });
     }
+
     function clearLessons(){
         table.querySelectorAll('td').forEach(td=>td.innerHTML='');
     }
@@ -139,18 +167,49 @@ document.addEventListener('DOMContentLoaded', () => {
           const ymd = formatYMD(date);
           if(dragType==='subject'){
               const subjectId = e.dataTransfer.getData('subjectId');
-              fetch(`/schedule/lesson/createFromSubject/subject_id/${subjectId}/date/${ymd}/period/${period}`)
+              fetch(`/schedule/lesson/createFromSubjectPeriod/subject_id/${subjectId}/date/${ymd}/period/${period}`)
                   .then(r=>r.json())
                   .then(data=>{
                       addLessonToTable({id:data.id,title:data.title,color:data.color,date:ymd,period:period});
                       decreaseSubjectQuantity(subjectId);
                   });
-          } else if(dragType==='lesson'){
-              const lessonId = e.dataTransfer.getData('lessonId');
-              fetch(`/schedule/lesson/update/lesson_id/${lessonId}/date/${ymd}/period/${period}`)
-                  .then(()=> loadWeek());
-          }
-      });
+          } else if (dragType === 'lesson') {
+        const lessonId = e.dataTransfer.getData('lessonId');
+        const lessonEl = document.querySelector(`.lesson[data-id="${lessonId}"]`);
+        if (!lessonEl) return;
+
+        // Remember origin (for revert on failure)
+        const fromCell   = lessonEl.closest('td[data-day][data-period]');
+        const fromDay    = fromCell ? fromCell.dataset.day : null;
+        const fromPeriod = fromCell ? fromCell.dataset.period : null;
+
+        // Optimistically move lesson in the UI
+        cell.appendChild(lessonEl);
+
+        // Compute YYYY-MM-DD for target cell
+        const date = new Date(currentMonday);
+        date.setDate(date.getDate() + (day - 1));
+        const ymd = formatYMD(date);
+
+        // Fire update request (no full reload)
+        fetch(`/schedule/lesson/update/lesson_id/${lessonId}/date/${ymd}/period/${period}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Update failed');
+                // Optionally update any local data attributes if you use them later
+                lessonEl.dataset.date = ymd;
+                lessonEl.dataset.period = period;
+                lessonEl.dataset.day = String(day);
+            })
+            .catch(err => {
+                console.error(err);
+                // Revert UI on failure
+                if (fromCell) fromCell.appendChild(lessonEl);
+                // Optional: toast/alert
+                // alert('Could not move lesson. Please try again.');
+            });
+    }
+
+});
     table.addEventListener('click', e=>{
         if(e.target.classList.contains('delete-btn')){
             const id = e.target.dataset.id;

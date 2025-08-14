@@ -10,6 +10,10 @@
             <a href="/schedule/index/teachers" class="grid-head-button">
                 Full schedule
             </a>
+
+            <a href="/schedule/grid/teachers" class="grid-head-button">
+                Period schedule
+            </a>
         </div>
 
         {{-- Flash message --}}
