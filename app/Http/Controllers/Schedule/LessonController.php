@@ -47,6 +47,7 @@ class LessonController extends Controller
             'teachers' => $subject->teachers
                 ->map(fn($teacher) => $teacher->user->name)
                 ->join(', '),
+            'students' => [],
             'date' => $lesson->date,
             'period' => $lesson->period,
         ]);
@@ -73,6 +74,8 @@ class LessonController extends Controller
         $lesson->teachers()->syncWithoutDetaching($teacherIds);
         $lesson->users()->syncWithoutDetaching([$user_id]);
 
+        $user = User::findOrFail($user_id);
+
         return response()->json([
             'id' => $lesson->id,
             'title' => $lesson->subject->code,
@@ -81,6 +84,10 @@ class LessonController extends Controller
             'teachers' => $subject->teachers
                 ->map(fn($teacher) => $teacher->user->name)
                 ->join(', '),
+            'students' => [[
+                'id' => $user->id,
+                'name' => $user->name,
+            ]],
             'date' => $lesson->date,
             'period' => $lesson->period,
         ]);

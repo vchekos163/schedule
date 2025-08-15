@@ -177,10 +177,33 @@ document.addEventListener('DOMContentLoaded', () => {
         details.innerHTML = `
             <div class="font-semibold">${ev.title || ''}</div>
             <div class="text-sm text-gray-200">${ev.room || ''}</div>
-            <div class="text-xs text-gray-300">${ev.teachers || ''}</div>
+            <div class="text-xs text-gray-300 teachers-text">${ev.teachers || ''}</div>
         `;
 
-        wrap.appendChild(reasonBtn);
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'flex flex-col gap-1';
+        iconWrap.appendChild(reasonBtn);
+
+        if(ev.students && ev.students.length){
+            const studentsBtn = document.createElement('span');
+            studentsBtn.className = 'students-btn cursor-pointer text-white text-xs relative';
+            studentsBtn.textContent = '👥';
+            const list = document.createElement('div');
+            list.className = 'students-list absolute z-50 left-4 top-4 text-blue-600 bg-white border border-blue-300 px-3 py-2 text-xs rounded shadow hidden';
+            ev.students.forEach(s => {
+                const item = document.createElement('div');
+                item.dataset.id = s.id;
+                item.textContent = s.name;
+                list.appendChild(item);
+            });
+            studentsBtn.appendChild(list);
+            studentsBtn.addEventListener('click', () => {
+                list.classList.toggle('hidden');
+            });
+            iconWrap.appendChild(studentsBtn);
+        }
+
+        wrap.appendChild(iconWrap);
         wrap.appendChild(details);
         lesson.appendChild(wrap);
 
@@ -204,7 +227,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     period: period,
                     reason: lesson.querySelector('.reason-tooltip')?.textContent || '',
                     room: lesson.querySelector('.text-sm')?.textContent || '',
-                    teachers: lesson.querySelector('.text-xs')?.textContent || '',
+                    teachers: lesson.querySelector('.teachers-text')?.textContent || '',
+                    students: Array.from(lesson.querySelectorAll('.students-list div')).map(div => ({
+                        id: div.dataset.id,
+                        name: div.textContent,
+                    })),
                 });
             });
         });
@@ -245,7 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
                           period:period,
                           reason:data.reason,
                           room:data.room,
-                          teachers:data.teachers
+                          teachers:data.teachers,
+                          students:data.students || []
                       });
                       decreaseSubjectQuantity(subjectId);
                   });
@@ -338,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         reason: ev.reason,
                                         room: ev.room ,
                                         teachers: ev.teachers,
+                                        students: ev.students || [],
                                     };
                                 }).filter(e => e.period);
                                 console.log(events);
