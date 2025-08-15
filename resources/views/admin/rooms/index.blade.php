@@ -7,10 +7,14 @@
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Rooms</h1>
 
-            {{-- Create Button --}}
-            <a href="/admin/rooms/create" class="grid-head-button">
-                + Create
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="/schedule/grid/rooms" class="grid-head-button">
+                    Full schedule
+                </a>
+                <a href="/admin/rooms/create" class="grid-head-button">
+                    + Create
+                </a>
+            </div>
 
         </div>
 

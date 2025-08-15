@@ -7,6 +7,7 @@ use App\Models\Lesson;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Models\Room;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Config;
 
@@ -93,6 +94,54 @@ class GridController extends Controller
         return response()->json([
             'events' => $events,
             'subjects' => $subjects,
+        ]);
+    }
+
+    public function rooms(?int $room_id = null)
+    {
+        $room    = $room_id ? Room::findOrFail($room_id) : null;
+        $periods = Config::get('periods');
+
+        return view('schedule.grid.rooms', [
+            'room'    => $room,
+            'periods' => $periods,
+        ]);
+    }
+
+    public function roomsData(string $start, ?int $room_id = null)
+    {
+        $startDate = Carbon::parse($start)->startOfWeek();
+        $endDate   = (clone $startDate)->endOfWeek();
+
+        if ($room_id) {
+            $room    = Room::findOrFail($room_id);
+            $lessons = $room->lessons()
+                ->with(['subject', 'room', 'teachers.user'])
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->get();
+        } else {
+            $lessons = Lesson::with(['subject', 'room', 'teachers.user'])
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->get();
+        }
+
+        $events = $lessons->map(function ($lesson) {
+            return [
+                'id'      => $lesson->id,
+                'title'   => $lesson->subject->code,
+                'color'   => $lesson->subject->color,
+                'date'    => $lesson->date,
+                'period'  => $lesson->period,
+                'reason'  => $lesson->reason,
+                'room'    => $lesson->room->code,
+                'teachers' => $lesson->teachers
+                    ->map(fn($teacher) => $teacher->user->name)
+                    ->join(', '),
+            ];
+        });
+
+        return response()->json([
+            'events' => $events,
         ]);
     }
 
