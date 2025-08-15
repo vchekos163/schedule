@@ -2,6 +2,15 @@
 
 @section('content')
 <div class="container mx-auto p-4 max-w-full">
+    <h1 class="text-lg font-semibold mb-3 flex items-center gap-2">
+        Room schedule{{ $room ? ': ' . ($room->name ?? 'Room') : '' }}
+        <span id="spinner" class="hidden">
+                <svg class="animate-spin h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+        </span>
+    </h1>
     <div class="flex items-center justify-center mb-2 gap-2">
         <button id="prev-week" class="px-2 py-1 bg-gray-200 rounded">Prev</button>
         <div id="week-label" class="font-semibold"></div>
@@ -54,6 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${y}-${m}-${da}`;
     }
     function loadWeek(){
+        const spinner = document.getElementById('spinner');
+        spinner.classList.remove('hidden'); // show spinner
         const start = formatYMD(currentMonday);
         document.getElementById('week-label').textContent = start;
         fetch(`/schedule/grid/roomsData/room_id/${roomId}/start/${start}`)
@@ -72,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         header.textContent = `${weekday} ${dateStr}`;
                     }
                 }
+            })
+            .finally(() => {
+                spinner.classList.add('hidden'); // hide spinner
             });
     }
     function clearLessons(){ table.querySelectorAll('td').forEach(td=>td.innerHTML=''); }
