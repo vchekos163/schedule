@@ -44,6 +44,7 @@ class OptimizeTeachers implements ShouldQueue
 
         $weekStart = Carbon::parse($this->start)->startOfWeek(Carbon::MONDAY);
         $weekEnd   = $weekStart->copy()->addDays(4);
+        $dates = $weekStart->format('d-m-Y') . ' - ' . $weekEnd->format('d-m-Y');
 
         $existingSchedule = Lesson::select('id','date','room_id','subject_id')
             ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
@@ -87,7 +88,8 @@ class OptimizeTeachers implements ShouldQueue
         if (count($existingSchedule->toArray())) {
             $scheduler = new ScheduleGenerator(
                 $lessons->toArray(),
-                $rooms->toArray()
+                $rooms->toArray(),
+                $dates
             );
 
             $newSchedule = $scheduler->generate();

@@ -2,17 +2,20 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
+
 class ScheduleGenerator
 {
-    protected array $teachers;
+    protected string $dates;
     protected array $students;
     protected array $rooms;
     protected array $currentSchedule;
 
-    public function __construct(array $currentSchedule = [], array $rooms = [])
+    public function __construct(array $currentSchedule = [], array $rooms = [], string $dates = '')
     {
         $this->currentSchedule = $currentSchedule;
         $this->rooms = $rooms;
+        $this->dates = $dates;
     }
 
     public function generate(): array
@@ -20,6 +23,7 @@ class ScheduleGenerator
         $payload = [
             'current_schedule' => $this->currentSchedule,
             'rooms'            => $this->rooms,
+            'date_range'       => $this->dates,
         ];
 
         $prompt = $this->buildPrompt($payload);
@@ -41,8 +45,8 @@ Rearrange ALL the lessons to:
 - Analyse students subjects, and their load
 - Choose rooms that match capacity and features so they are not overfilled
 - Write brief reasons why this lesson on this place
-- Use fixed lesson periods from 1 to 7
-- Week only from monday to friday
+- If max_days stated you can choose any [max_days] days of the week
+- If a room is assigned to multiple subjects, give it to the subject with the highest room priority
 
 Return only valid JSON array of lessons:
 [
@@ -94,6 +98,10 @@ PROMPT;
         ]);
 
         $result = curl_exec($ch);
+
+        Log::info('OptimizeTeachers: generation response', [
+            'result'     => $result,
+        ]);
 
         if (curl_errno($ch)) {
             throw new \RuntimeException('cURL error: ' . curl_error($ch));

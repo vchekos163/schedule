@@ -154,9 +154,10 @@ class IndexController extends Controller
         return response()->json($data);
     }
 
-    public function saveOptimizedTeachers(Request $request)
+    public function saveOptimizedTeachers(string $jobId)
     {
-        $newSchedule = $request->input('lessons', []);
+        $data = Cache::get("optimize_teachers_{$jobId}");
+        $newSchedule = $data['lessons'];
 
         DB::transaction(function () use ($newSchedule) {
             foreach ($newSchedule as $lessonData) {
@@ -173,8 +174,7 @@ class IndexController extends Controller
                 $lesson->reason = $lessonData['reason'];
                 $lesson->room_id = $lessonData['room_id'];
                 $lesson->date = $lessonData['date'];
-                $lesson->start_time = $lessonData['start_time'];
-                $lesson->end_time = $lessonData['end_time'];
+                $lesson->period = $lessonData['period'];
                 $lesson->save();
             }
         });
@@ -240,70 +240,4 @@ class IndexController extends Controller
 
         return redirect('/schedule/index/student/user_id/'.$user_id)->with('message', 'Schedule optimized and saved!');
     }
-
-    // In the same class as optimizeTeachers()
-
-    private function compressAvailabilityNoGaps($availability): array
-    {
-        if (!is_array($availability)) return [];
-
-        // Map full day names to short names
-        $dayShort = [
-            'monday'    => 'mon',
-            'tuesday'   => 'tue',
-            'wednesday' => 'wed',
-            'thursday'  => 'thu',
-            'friday'    => 'fri',
-            'saturday'  => 'sat',
-            'sunday'    => 'sun',
-        ];
-
-        $out = [];
-        foreach ($availability as $day => $slots) {
-            $shortDay = $dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
-
-            if (!is_array($slots)) continue;
-
-            ksort($slots, SORT_NUMERIC);
-
-            $currentState = null;
-            $rangeStart   = null;
-            $prevPeriod   = null;
-
-            foreach ($slots as $period => $state) {
-                $periodNumber = (int) $period;
-                $state = strtoupper((string) $state);
-
-                if ($state === 'UNAVAILABLE') {
-                    if ($currentState !== null) {
-                        $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
-                        $currentState = null;
-                        $rangeStart   = null;
-                        $prevPeriod   = null;
-                    }
-                    continue;
-                }
-
-                if ($currentState === $state && $prevPeriod !== null && $periodNumber === $prevPeriod + 1) {
-                    $prevPeriod = $periodNumber;
-                    continue;
-                }
-
-                if ($currentState !== null) {
-                    $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
-                }
-
-                $currentState = $state;
-                $rangeStart   = $periodNumber;
-                $prevPeriod   = $periodNumber;
-            }
-
-            if ($currentState !== null) {
-                $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
-            }
-        }
-
-        return $out;
-    }
-
 }

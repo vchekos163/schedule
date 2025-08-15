@@ -1,9 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container mx-auto p-4 flex gap-4">
+<div class="container mx-auto p-4 flex gap-4 max-w-full">
     {{-- Left: Subject palette --}}
-    <div class="w-1/4">
+    <div class="w-1/8">
         <h1 class="text-lg font-semibold mb-3 flex items-center gap-2">
             Teacher schedule{{ $teacher ? ': ' . ($teacher->user->name ?? 'Teacher') : '' }}
             <span id="spinner" class="hidden">
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeToPeriod = {};
     Object.entries(periods).forEach(([p, t]) => { timeToPeriod[t.start] = Number(p); });
     let originalEvents = null;
-    let generatedLessons = null;
+    let jobId = null;
 
     function startOfWeek(d){
         const date = new Date(d);
@@ -89,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const spinner = document.getElementById('spinner');
         spinner.classList.remove('hidden'); // show spinner
         originalEvents = null;
-        generatedLessons = null;
         document.getElementById('save').classList.add('hidden');
         document.getElementById('undo').classList.add('hidden');
 
@@ -316,15 +315,14 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch(`/schedule/index/optimizeTeachers/start/${monday}`)
             .then(res => res.json())
             .then(data => {
-                const jobId = data.jobId;
+                jobId = data.jobId;
                 if (!jobId) throw new Error('No job id');
                 const poll = setInterval(() => {
-                    fetch(`/schedule/index/getOptimizedTeachers/jobId/14116a91-76b3-4984-8a01-5af402f0ca5b`)
+                    fetch(`/schedule/index/getOptimizedTeachers/jobId/${jobId}`)
                         .then(r => r.json())
                         .then(result => {
                             if (result.status !== 'pending') {
                                 clearInterval(poll);
-                                generatedLessons = result.lessons || [];
                                 const events = (result.events || []).map(ev => {
                                     return {
                                         id: ev.id,
@@ -359,15 +357,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('save').addEventListener('click', () => {
-        if (!generatedLessons) return;
-        fetch('/schedule/index/saveOptimizedTeachers', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            },
-            body: JSON.stringify({ lessons: generatedLessons }),
-        })
+        if (!jobId) return;
+        fetch(`/schedule/index/saveOptimizedTeachers/jobId/${jobId}`)
             .then(() => window.location.reload())
             .catch(() => alert('Failed to save schedule'));
     });
@@ -376,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!originalEvents) return;
         clearLessons();
         originalEvents.forEach(addLessonToTable);
-        generatedLessons = null;
+        jobId = null;
         originalEvents = null;
         document.getElementById('save').classList.add('hidden');
         document.getElementById('undo').classList.add('hidden');
