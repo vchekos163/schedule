@@ -138,10 +138,20 @@ PROMPT;
 
         $json = json_decode($result, true);
 
-        if ($json['error']) {
-            $json['choices'][0]['message']['content'] = json_encode($json['error']);
+        // If OpenAI returned an error at the root level, surface that message
+        if (isset($json['error']['message'])) {
+            return json_encode(['error' => $json['error']['message']]);
         }
-        return $json['choices'][0]['message']['content'] ?? '[]';
+
+        $content = $json['choices'][0]['message']['content'] ?? '[]';
+
+        // Sometimes the content itself is a JSON object with an `error` key
+        $decoded = json_decode($content, true);
+        if (json_last_error() === JSON_ERROR_NONE && isset($decoded['error'])) {
+            return json_encode(['error' => $decoded['error']]);
+        }
+
+        return $content;
     }
 
     protected function prettyJson(array $data): string

@@ -115,7 +115,24 @@ class OptimizeTeachers implements ShouldQueue
                 $students->toArray()
             );
 
-            $newSchedule = $scheduler->generate();
+            try {
+                $newSchedule = $scheduler->generate();
+            } catch (\Throwable $e) {
+                Cache::put("optimize_teachers_{$this->jobId}", [
+                    'status' => 'failed',
+                    'error'  => $e->getMessage(),
+                ], now()->addHour());
+                return;
+            }
+
+            if (isset($newSchedule['error'])) {
+                Cache::put("optimize_teachers_{$this->jobId}", [
+                    'status' => 'failed',
+                    'error'  => $newSchedule['error'],
+                ], now()->addHour());
+                return;
+            }
+
             $newSchedule = $newSchedule['lessons'] ?? [];
 
             $events = collect($newSchedule)->map(function ($lessonData) {
