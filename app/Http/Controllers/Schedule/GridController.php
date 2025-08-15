@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Config;
 
@@ -73,6 +74,69 @@ class GridController extends Controller
                 ];
             })->filter(fn ($row) => $row['quantity'] > 0)->values();
         }
+
+        $events = $lessons->map(function ($lesson) {
+            return [
+                'id' => $lesson->id,
+                'title' => $lesson->subject->code,
+                'color' => $lesson->subject->color,
+                'date' => $lesson->date,
+                'period' => $lesson->period,
+                'reason' => $lesson->reason,
+                'room' => $lesson->room->code,
+                'teachers' => $lesson->teachers
+                    ->map(fn($teacher) => $teacher->user->name)
+                    ->join(', '),
+            ];
+        });
+
+        return response()->json([
+            'events' => $events,
+            'subjects' => $subjects,
+        ]);
+    }
+
+    public function student(int $user_id)
+    {
+        $user = User::findOrFail($user_id);
+        $periods = Config::get('periods');
+
+        return view('schedule.grid.student', [
+            'user' => $user,
+            'periods' => $periods,
+        ]);
+    }
+
+    public function studentData(string $start, int $user_id)
+    {
+        $startDate = Carbon::parse($start)->startOfWeek();
+        $endDate   = (clone $startDate)->endOfWeek();
+
+        $user = User::with('subjects')->findOrFail($user_id);
+
+        $lessons = $user->lessons()
+            ->with(['subject', 'room', 'teachers.user'])
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get();
+
+        $subjects = $user->subjects
+            ->filter(fn($s) => $s->code === 'IND')
+            ->map(function ($subject) use ($user, $startDate, $endDate) {
+                $lessonsCount = $user->lessons()
+                    ->where('subject_id', $subject->id)
+                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->count();
+
+                $remaining = max(0, ($subject->pivot->quantity ?? 0) - $lessonsCount);
+
+                return [
+                    'id'       => $subject->id,
+                    'name'     => $subject->name,
+                    'code'     => $subject->code,
+                    'color'    => $subject->color,
+                    'quantity' => $remaining,
+                ];
+            })->filter(fn ($row) => $row['quantity'] > 0)->values();
 
         $events = $lessons->map(function ($lesson) {
             return [
