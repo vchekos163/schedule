@@ -33,7 +33,7 @@ class GridController extends Controller
             $teacher = Teacher::with('subjects')->findOrFail($teacher_id);
 
             $lessons = $teacher->lessons()
-                ->with(['subject', 'room', 'teachers.user'])
+                ->with(['subject', 'room', 'teachers.user', 'users'])
                 ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
                 ->get();
 
@@ -54,7 +54,7 @@ class GridController extends Controller
                 ];
             })->filter(fn ($row) => $row['quantity'] > 0)->values();
         } else {
-            $lessons = Lesson::with(['subject', 'room', 'teachers.user'])
+            $lessons = Lesson::with(['subject', 'room', 'teachers.user', 'users'])
                 ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
                 ->get()
                 ->filter(fn($lesson) => optional($lesson->subject)->code !== 'IND');
@@ -89,6 +89,11 @@ class GridController extends Controller
                 'teachers' => $lesson->teachers
                     ->map(fn($teacher) => $teacher->user->name)
                     ->join(', '),
+                'students' => $lesson->users
+                    ->map(fn($user) => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                    ])->values()->all(),
             ];
         });
 
