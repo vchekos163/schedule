@@ -85,7 +85,7 @@ class GridController extends Controller
                 'date' => $lesson->date,
                 'period' => $lesson->period,
                 'reason' => $lesson->reason,
-                'room' => $lesson->room->code,
+                'room' => $lesson->room->code.' ('.$lesson->room->capacity.')',
                 'teachers' => $lesson->teachers
                     ->map(fn($teacher) => $teacher->user->name)
                     ->join(', '),
