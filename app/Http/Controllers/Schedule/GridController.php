@@ -208,9 +208,33 @@ class GridController extends Controller
             ];
         });
 
+        $subjectIds = $subjects->pluck('id');
+
+        $unassigned = Lesson::with(['subject', 'room', 'teachers.user'])
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->whereIn('subject_id', $subjectIds)
+            ->whereDoesntHave('users')
+            ->get()
+            ->map(function ($lesson) {
+                return [
+                    'id' => $lesson->id,
+                    'title' => $lesson->subject->code,
+                    'color' => $lesson->subject->color,
+                    'date' => $lesson->date,
+                    'period' => $lesson->period,
+                    'reason' => $lesson->reason,
+                    'room' => $lesson->room->code,
+                    'teachers' => $lesson->teachers
+                        ->map(fn($teacher) => $teacher->user->name)
+                        ->join(', '),
+                    'subject_id' => $lesson->subject_id,
+                ];
+            });
+
         return response()->json([
             'events' => $events,
             'subjects' => $subjects,
+            'unassigned' => $unassigned,
         ]);
     }
 }

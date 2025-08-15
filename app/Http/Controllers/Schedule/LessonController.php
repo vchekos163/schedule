@@ -184,6 +184,26 @@ class LessonController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function assignToStudent(int $lesson_id, int $user_id)
+    {
+        $lesson = Lesson::with(['subject', 'room', 'teachers.user'])->findOrFail($lesson_id);
+        $lesson->users()->syncWithoutDetaching([$user_id]);
+
+        return response()->json([
+            'id' => $lesson->id,
+            'title' => $lesson->subject->code,
+            'color' => $lesson->subject->color,
+            'date' => $lesson->date,
+            'period' => $lesson->period,
+            'reason' => $lesson->reason,
+            'room' => $lesson->room->code,
+            'teachers' => $lesson->teachers
+                ->map(fn($teacher) => $teacher->user->name)
+                ->join(', '),
+            'subject_id' => $lesson->subject_id,
+        ]);
+    }
+
     public function assignStudentLessons(int $user_id, string $start)
     {
         $startDate = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);
