@@ -50,7 +50,7 @@ class OptimizeTeachers implements ShouldQueue
             ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->with([
                 'subject:id,priority',
-                'room:id,capacity',
+                'subject.rooms:id',
                 'teachers:id,availability,max_lessons,max_days,max_gaps',
             ])
             ->get();
@@ -76,6 +76,16 @@ class OptimizeTeachers implements ShouldQueue
                         'max_days_week' => optional($t->max_days < 5 ? $t->max_days : null),
                     ];
                 })->values()->all(),
+                'rooms' => $l->subject
+                    ? $l->subject->rooms
+                        ->map(fn($r) => [
+                            'id'       => $r->id,
+                            'priority' => ($r->pivot->priority ?? 0),
+                        ])
+                        ->sortBy('priority')
+                        ->values()
+                        ->all()
+                    : [],
                 'students_count' => (int) $subjectToStudentsQty->get($l->subject_id, 0),
             ];
         })->values();

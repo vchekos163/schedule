@@ -42,10 +42,11 @@ Given the following data:
 
 Rearrange ALL the lessons to:
 - Respect teacher availability and max gaps
-- Analyse students subjects, and their load
+- Ensure that no student has two different lessons scheduled in the same date and period within the same week
 - Choose rooms that match capacity and features so they are not overfilled
 - Write brief reasons why this lesson on this place
 - If max_days stated you can choose any [max_days] days of the week
+- Lower number means a higher priority
 - If a room is assigned to multiple subjects, give it to the subject with the highest room priority
 
 Return only valid JSON array of lessons:
