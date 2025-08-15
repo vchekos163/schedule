@@ -176,6 +176,9 @@ class IndexController extends Controller
                 $lesson->date = $lessonData['date'];
                 $lesson->period = $lessonData['period'];
                 $lesson->save();
+
+                $studentIds = $lessonData['student_ids'] ?? [];
+                $lesson->users()->sync($studentIds);
             }
         });
 
@@ -186,17 +189,24 @@ class IndexController extends Controller
     {
         $student = User::with('subjects')->findOrFail($user_id);
 
-        $teachers = User::role('teacher')->with(['subjects', 'teacher', 'lessons'])->get();
-        $students = collect([$student]);
         $rooms = Room::all();
-
         $existingSchedule = Lesson::with(['teachers', 'users', 'room'])->get();
 
+        $students = collect([$student])->map(function ($s) {
+            return [
+                'id'       => $s->id,
+                'subjects' => $s->subjects->map(fn($sub) => [
+                    'id'       => $sub->id,
+                    'quantity' => $sub->pivot->quantity ?? 0,
+                ])->toArray(),
+            ];
+        })->values()->toArray();
+
         $scheduler = new ScheduleGenerator(
-            $teachers->toArray(),
-            $students->toArray(),
+            $existingSchedule->toArray(),
             $rooms->toArray(),
-            $existingSchedule->toArray()
+            '',
+            $students
         );
 
         $newSchedule = $scheduler->generate();
@@ -221,11 +231,6 @@ class IndexController extends Controller
                 $lesson->start_time = $lessonData['start_time'];
                 $lesson->end_time = $lessonData['end_time'];
                 $lesson->save();
-
-                // Attach students
-                if (!empty($lessonData['student_ids'])) {
-                    $lesson->users()->sync($lessonData['student_ids']);
-                }
 
                 // Attach teachers
                 if (!empty($lessonData['teacher_ids'])) {

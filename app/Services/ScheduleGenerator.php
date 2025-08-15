@@ -11,11 +11,12 @@ class ScheduleGenerator
     protected array $rooms;
     protected array $currentSchedule;
 
-    public function __construct(array $currentSchedule = [], array $rooms = [], string $dates = '')
+    public function __construct(array $currentSchedule = [], array $rooms = [], string $dates = '', array $students = [])
     {
         $this->currentSchedule = $currentSchedule;
         $this->rooms = $rooms;
         $this->dates = $dates;
+        $this->students = $students;
     }
 
     public function generate(): array
@@ -24,6 +25,7 @@ class ScheduleGenerator
             'current_schedule' => $this->currentSchedule,
             'rooms'            => $this->rooms,
             'date_range'       => $this->dates,
+            'students'         => $this->students,
         ];
 
         $prompt = $this->buildPrompt($payload);
@@ -43,6 +45,8 @@ Given the following data:
 Rearrange ALL the lessons to:
 - Respect teacher availability and max gaps
 - Ensure that no student has two different lessons scheduled in the same date and period within the same week
+- Ensure each student receives the required quantity of lessons for every subject
+- Include the student IDs for each lesson in a `student_ids` array
 - Choose rooms that match capacity and features so they are not overfilled
 - Write brief reasons why this lesson on this place
 - If max_days stated you can choose any [max_days] days of the week
@@ -53,6 +57,7 @@ Return only valid JSON array of lessons:
 [
   {
     "lesson_id": 1,
+    "student_ids": [1, 2],
     "reason": "why",
     "room_id": 301,
     "date": "2025-08-05",

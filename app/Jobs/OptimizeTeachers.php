@@ -60,14 +60,22 @@ class OptimizeTeachers implements ShouldQueue
 
         $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
 
-        $subjectToStudents = DB::table('subject_user')
+        $students = DB::table('subject_user')
             ->whereIn('subject_id', $subjectIds)
-            ->select('subject_id', 'user_id')
+            ->select('user_id', 'subject_id', 'quantity')
             ->get()
-            ->groupBy('subject_id')
-            ->map(fn($rows) => $rows->pluck('user_id')->unique()->values()->all());
+            ->groupBy('user_id')
+            ->map(function ($rows, $userId) {
+                return [
+                    'id'       => $userId,
+                    'subjects' => $rows->map(fn($row) => [
+                        'id'       => $row->subject_id,
+                        'quantity' => $row->quantity,
+                    ])->values()->all(),
+                ];
+            })->values();
 
-        $lessons = $existingSchedule->map(function ($l) use ($subjectToStudents) {
+        $lessons = $existingSchedule->map(function ($l) {
             return [
                 'id'          => $l->id,
                 'priority'    => optional($l->subject)->priority,
@@ -90,7 +98,6 @@ class OptimizeTeachers implements ShouldQueue
                         ->values()
                         ->all()
                     : [],
-                'student_ids'    => $subjectToStudents->get($l->subject_id, []),
             ];
         })->values();
 
@@ -103,7 +110,8 @@ class OptimizeTeachers implements ShouldQueue
             $scheduler = new ScheduleGenerator(
                 $lessons->toArray(),
                 $rooms->toArray(),
-                $dates
+                $dates,
+                $students->toArray()
             );
 
             $newSchedule = $scheduler->generate();
