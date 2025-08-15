@@ -139,37 +139,48 @@ class OptimizeTeachers implements ShouldQueue
         $out = [];
         foreach ($availability as $day => $slots) {
             $shortDay = $dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
-            $times = [];
-            if (is_array($slots)) {
-                foreach ($slots as $period => $state) {
-                    if (strtoupper($state) !== 'UNAVAILABLE') {
-                        $start = config("periods.$period.start");
-                        if ($start) {
-                            $times[] = $start;
-                        }
+
+            if (!is_array($slots)) continue;
+
+            ksort($slots, SORT_NUMERIC);
+
+            $currentState = null;
+            $rangeStart   = null;
+            $prevPeriod   = null;
+
+            foreach ($slots as $period => $state) {
+                $periodNumber = (int) $period;
+                $state = strtoupper((string) $state);
+
+                if ($state === 'UNAVAILABLE') {
+                    if ($currentState !== null) {
+                        $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
+                        $currentState = null;
+                        $rangeStart   = null;
+                        $prevPeriod   = null;
                     }
+                    continue;
                 }
+
+                if ($currentState === $state && $prevPeriod !== null && $periodNumber === $prevPeriod + 1) {
+                    $prevPeriod = $periodNumber;
+                    continue;
+                }
+
+                if ($currentState !== null) {
+                    $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
+                }
+
+                $currentState = $state;
+                $rangeStart   = $periodNumber;
+                $prevPeriod   = $periodNumber;
             }
-            $out[$shortDay] = $this->glueDayNoGapsShort($times);
+
+            if ($currentState !== null) {
+                $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
+            }
         }
+
         return $out;
-    }
-
-    private function glueDayNoGapsShort(array $times): ?string
-    {
-        if (empty($times)) return null;
-        $times = array_values(array_unique(array_map(function ($t) {
-            $t = trim((string)$t);
-            if ($t === '') return null;
-            if (preg_match('/^\d:\d{2}$/', $t)) $t = '0' . $t;
-            return $t;
-        }, $times)));
-        $times = array_filter($times);
-        if (!$times) return null;
-
-        sort($times, SORT_STRING);
-        $startHour = (int)substr(reset($times), 0, 2);
-        $endHour   = (int)substr(end($times), 0, 2);
-        return "{$startHour}-{$endHour}";
     }
 }
