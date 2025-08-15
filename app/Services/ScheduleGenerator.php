@@ -22,7 +22,7 @@ class ScheduleGenerator
     public function generate(): array
     {
         $payload = [
-            'current_schedule' => $this->currentSchedule,
+            'lessons' => $this->currentSchedule,
             'rooms'            => $this->rooms,
             'date_range'       => $this->dates,
             'students'         => $this->students,
@@ -44,26 +44,14 @@ Given the following data:
 
 Rearrange ALL the lessons to:
 - Respect teacher availability and max gaps
-- Ensure that no student has two different lessons scheduled in the same date and period within the same week
-- Ensure each student receives the required quantity of lessons for every subject
+- Assign each student the required quantity of lessons for every subject
+- Ensure that no student has two different lessons scheduled in the same date and period
 - Include the student IDs for each lesson in a `student_ids` array
 - Choose rooms that match capacity and features so they are not overfilled
 - Write brief reasons why this lesson on this place
 - If max_days stated you can choose any [max_days] days of the week
 - Lower number means a higher priority
 - If a room is assigned to multiple subjects, give it to the subject with the highest room priority
-
-Return only valid JSON array of lessons:
-[
-  {
-    "lesson_id": 1,
-    "student_ids": [1, 2],
-    "reason": "why",
-    "room_id": 301,
-    "date": "2025-08-05",
-    "period": 1
-  }
-]
 PROMPT;
     }
 
@@ -84,9 +72,42 @@ PROMPT;
                     "content" => $prompt
                 ]
             ],
-            "response_format" => array(
-                "type" => "json_object",
-            ),
+            "response_format" => [
+                "type" => "json_schema",
+                "json_schema" => [
+                    "name" => "lessons_payload",
+                    "strict" => true,
+                    "schema" => [
+                        "type" => "object",
+                        "properties" => [
+                            "lessons" => [
+                                "type" => "array",
+                                "minItems" => 1, // require at least one lesson; remove if you want to allow []
+                                "items" => [
+                                    "type" => "object",
+                                    "properties" => [
+                                        "lesson_id" => [ "type" => "integer" ],
+                                        "student_ids" => [
+                                            "type" => "array",
+                                            "items" => [ "type" => "integer" ],
+                                            "minItems" => 1, // force non-empty array
+                                            "description" => "IDs of students assigned to this lesson; must not be empty."
+                                        ],
+                                        "reason"  => [ "type" => "string" ],
+                                        "room_id" => [ "type" => "integer" ],
+                                        "date"    => [ "type" => "string", "format" => "date" ],
+                                        "period"  => [ "type" => "integer" ]
+                                    ],
+                                    "required" => ["lesson_id","student_ids","reason","room_id","date","period"],
+                                    "additionalProperties" => false
+                                ]
+                            ]
+                        ],
+                        "required" => ["lessons"],
+                        "additionalProperties" => false
+                    ]
+                ]
+            ]
         ];
 
         $headers = [
@@ -117,21 +138,10 @@ PROMPT;
 
         $json = json_decode($result, true);
 
-        $content = $json['choices'][0]['message']['content'] ?? '[]';
-
-        // The API may return an error inside the content payload. If so, log and throw.
-        $decodedContent = is_string($content) ? json_decode($content, true) : $content;
-
-        if (is_array($decodedContent) && isset($decodedContent['error'])) {
-            $errorMessage = $decodedContent['error'];
-            Log::error('ScheduleGenerator: OpenAI returned an error', [
-                'error' => $errorMessage,
-            ]);
-
-            throw new \RuntimeException($errorMessage);
+        if ($json['error']) {
+            $json['choices'][0]['message']['content'] = json_encode($json['error']);
         }
-
-        return is_array($content) ? json_encode($content) : $content;
+        return $json['choices'][0]['message']['content'] ?? '[]';
     }
 
     protected function prettyJson(array $data): string

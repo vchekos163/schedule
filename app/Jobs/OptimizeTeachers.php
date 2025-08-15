@@ -36,132 +36,122 @@ class OptimizeTeachers implements ShouldQueue
      */
     public function handle(): void
     {
+
         Log::info('OptimizeTeachers: handle', [
             'jobId'     => $this->jobId,
             'cache_key' => "optimize_teachers_{$this->jobId}",
         ]);
 
-        try {
-            $weekStart = Carbon::parse($this->start)->startOfWeek(Carbon::MONDAY);
-            $weekEnd   = $weekStart->copy()->addDays(4);
-            $dates = $weekStart->format('d-m-Y') . ' - ' . $weekEnd->format('d-m-Y');
+        $weekStart = Carbon::parse($this->start)->startOfWeek(Carbon::MONDAY);
+        $weekEnd   = $weekStart->copy()->addDays(4);
+        $dates = $weekStart->format('d-m-Y') . ' - ' . $weekEnd->format('d-m-Y');
 
-            $existingSchedule = Lesson::select('id','date','room_id','subject_id')
-                ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-                ->whereHas('subject', function ($q) {
-                    $q->where('code', '!=', 'IND');
-                })
-                ->with([
-                    'subject:id,priority',
-                    'subject.rooms:id',
-                    'teachers:id,availability,max_lessons,max_days,max_gaps',
-                ])
-                ->get();
+        $existingSchedule = Lesson::select('id','date','room_id','subject_id')
+            ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereHas('subject', function ($q) {
+                $q->where('code', '!=', 'IND');
+            })
+            ->with([
+                'subject:id,priority',
+                'subject.rooms:id',
+                'teachers:id,availability,max_lessons,max_days,max_gaps',
+            ])
+            ->get();
 
-            $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
+        $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
 
-            $students = DB::table('subject_user')
-                ->whereIn('subject_id', $subjectIds)
-                ->select('user_id', 'subject_id', 'quantity')
-                ->get()
-                ->groupBy('user_id')
-                ->map(function ($rows, $userId) {
-                    return [
-                        'id'       => $userId,
-                        'subjects' => $rows->map(fn($row) => [
-                            'id'       => $row->subject_id,
-                            'quantity' => $row->quantity,
-                        ])->values()->all(),
-                    ];
-                })->values();
-
-            $lessons = $existingSchedule->map(function ($l) {
+        $students = DB::table('subject_user')
+            ->whereIn('subject_id', $subjectIds)
+            ->select('user_id', 'subject_id', 'quantity')
+            ->get()
+            ->groupBy('user_id')
+            ->map(function ($rows, $userId) {
                 return [
-                    'id'          => $l->id,
-                    'priority'    => optional($l->subject)->priority,
-                    'teachers'    => $l->teachers->map(function ($t) {
-                        return [
-                            'id'           => $t->id,
-                            'availability' => $this->compressAvailabilityNoGaps($t->availability ?? []),
-                            'max_lessons'  => $t->max_lessons ?? null,
-                            'max_gaps'     => $t->max_gaps ?? null,
-                            'max_days_week' => optional($t->max_days < 5 ? $t->max_days : null),
-                        ];
-                    })->values()->all(),
-                    'rooms' => $l->subject
-                        ? $l->subject->rooms
-                            ->map(fn($r) => [
-                                'id'       => $r->id,
-                                'priority' => ($r->pivot->priority ?? 0),
-                            ])
-                            ->sortBy('priority')
-                            ->values()
-                            ->all()
-                        : [],
+                    'id'       => $userId,
+                    'subjects' => $rows->map(fn($row) => [
+                        'id'       => $row->subject_id,
+                        'quantity' => $row->quantity,
+                    ])->values()->all(),
                 ];
             })->values();
 
-            $rooms = Room::select('id', 'purpose', 'capacity')->get();
-
-            $newSchedule = [];
-            $events = collect();
-
-            if (count($existingSchedule->toArray())) {
-                $scheduler = new ScheduleGenerator(
-                    $lessons->toArray(),
-                    $rooms->toArray(),
-                    $dates,
-                    $students->toArray()
-                );
-
-                $newSchedule = $scheduler->generate();
-                $newSchedule = $newSchedule['lessons'] ?? [];
-
-                $events = collect($newSchedule)->map(function ($lessonData) {
-                    $id = $lessonData['lesson_id'] ?? null;
-                    $event = [
-                        'id'    => $id,
-                        'title' => '',
-                        'color' => '#64748b',
-                        'period' => $lessonData['period'],
-                        'date' => $lessonData['date'],
-                        'reason'   => $lessonData['reason'] ?? '',
-                        'room'     => '',
-                        'teachers' => '',
+        $lessons = $existingSchedule->map(function ($l) {
+            return [
+                'id'          => $l->id,
+                'subject_id'    => $l->subject->id,
+                'priority'    => optional($l->subject)->priority,
+                'teachers'    => $l->teachers->map(function ($t) {
+                    return [
+                        'id'           => $t->id,
+                        'availability' => $this->compressAvailabilityNoGaps($t->availability ?? []),
+                        'max_lessons'  => $t->max_lessons ?? null,
+                        'max_gaps'     => $t->max_gaps ?? null,
+                        'max_days' => optional($t->max_days < 5 ? $t->max_days : null),
                     ];
+                })->values()->all(),
+                'rooms' => $l->subject
+                    ? $l->subject->rooms
+                        ->map(fn($r) => [
+                            'id'       => $r->id,
+                            'priority' => ($r->pivot->priority ?? 0),
+                        ])
+                        ->sortBy('priority')
+                        ->values()
+                        ->all()
+                    : [],
+            ];
+        })->values();
 
-                    if ($id) {
-                        $lesson = Lesson::with(['subject', 'room', 'teachers.user'])->find($id);
-                        if ($lesson) {
-                            $event['title'] = $lesson->subject->code ?? ($lesson->subject->name ?? '');
-                            $event['color'] = $lesson->subject->color ?? '#64748b';
-                            $event['room'] = $lesson->room->code ?? ($lesson->room->name ?? '');
-                            $event['teachers'] = $lesson->teachers
-                                ->map(fn($t) => $t->user->name)
-                                ->join(', ');
-                        }
+        $rooms = Room::select('id', 'purpose', 'capacity')->get();
+
+        $newSchedule = [];
+        $events = collect();
+
+        if (count($existingSchedule->toArray())) {
+            $scheduler = new ScheduleGenerator(
+                $lessons->toArray(),
+                $rooms->toArray(),
+                $dates,
+                $students->toArray()
+            );
+
+            $newSchedule = $scheduler->generate();
+            $newSchedule = $newSchedule['lessons'] ?? [];
+
+            $events = collect($newSchedule)->map(function ($lessonData) {
+                $id = $lessonData['lesson_id'] ?? null;
+                $event = [
+                    'id'    => $id,
+                    'title' => '',
+                    'color' => '#64748b',
+                    'period' => $lessonData['period'],
+                    'date' => $lessonData['date'],
+                    'reason'   => $lessonData['reason'] ?? '',
+                    'room'     => '',
+                    'teachers' => '',
+                ];
+
+                if ($id) {
+                    $lesson = Lesson::with(['subject', 'room', 'teachers.user'])->find($id);
+                    if ($lesson) {
+                        $event['title'] = $lesson->subject->code ?? ($lesson->subject->name ?? '');
+                        $event['color'] = $lesson->subject->color ?? '#64748b';
+                        $event['room'] = $lesson->room->code ?? ($lesson->room->name ?? '');
+                        $event['teachers'] = $lesson->teachers
+                            ->map(fn($t) => $t->user->name)
+                            ->join(', ');
                     }
+                }
 
-                    return $event;
-                })->values();
-            }
-
-            Cache::put("optimize_teachers_{$this->jobId}", [
-                'status'  => 'completed',
-                'lessons' => $newSchedule,
-                'events'  => $events,
-            ], now()->addHour());
-        } catch (\Throwable $e) {
-            Log::error('OptimizeTeachers failed', [
-                'jobId' => $this->jobId,
-                'error' => $e->getMessage(),
-            ]);
-
-            Cache::put("optimize_teachers_{$this->jobId}", [
-                'status' => 'failed',
-                'error'  => $e->getMessage(),
-            ], now()->addHour());
+                return $event;
+            })->values();
         }
+
+        Cache::put("optimize_teachers_{$this->jobId}", [
+            'status'  => 'completed',
+            'lessons' => $newSchedule,
+            'events'  => $events,
+        ], now()->addHour());
     }
 
     private function compressAvailabilityNoGaps($availability): array
