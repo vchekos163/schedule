@@ -116,7 +116,22 @@ PROMPT;
         curl_close($ch);
 
         $json = json_decode($result, true);
-        return $json['choices'][0]['message']['content'] ?? '[]';
+
+        $content = $json['choices'][0]['message']['content'] ?? '[]';
+
+        // The API may return an error inside the content payload. If so, log and throw.
+        $decodedContent = is_string($content) ? json_decode($content, true) : $content;
+
+        if (is_array($decodedContent) && isset($decodedContent['error'])) {
+            $errorMessage = $decodedContent['error'];
+            Log::error('ScheduleGenerator: OpenAI returned an error', [
+                'error' => $errorMessage,
+            ]);
+
+            throw new \RuntimeException($errorMessage);
+        }
+
+        return is_array($content) ? json_encode($content) : $content;
     }
 
     protected function prettyJson(array $data): string
