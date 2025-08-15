@@ -323,6 +323,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         .then(result => {
                             if (result.status !== 'pending') {
                                 clearInterval(poll);
+                                if (result.status === 'failed') {
+                                    spinner.classList.add('hidden');
+                                    alert(result.error || 'Optimization failed');
+                                    return;
+                                }
                                 const events = (result.events || []).map(ev => {
                                     return {
                                         id: ev.id,
