@@ -88,6 +88,40 @@ class LessonController extends Controller
         ]);
     }
 
+    public function createFromSubjectPeriodStudent($subject_id, $date, $period, $user_id)
+    {
+        $subject = Subject::with('teachers.user')->findOrFail($subject_id);
+        $room = Room::first();
+        $slot = config("periods.$period");
+        $start_time = $slot['start'];
+        $end_time   = $slot['end'];
+
+        $lesson = Lesson::create([
+            'subject_id' => $subject_id,
+            'room_id' => $room->id,
+            'date' => $date,
+            'period' => $period,
+            'start_time' => $start_time,
+            'end_time' => $end_time,
+        ]);
+
+        $teacherIds = $subject->teachers->pluck('id')->unique()->values()->all();
+        $lesson->teachers()->syncWithoutDetaching($teacherIds);
+        $lesson->users()->syncWithoutDetaching([$user_id]);
+
+        return response()->json([
+            'id' => $lesson->id,
+            'title' => $lesson->subject->code,
+            'color' => $lesson->subject->color,
+            'room' => $room->code,
+            'teachers' => $subject->teachers
+                ->map(fn($teacher) => $teacher->user->name)
+                ->join(', '),
+            'date' => $lesson->date,
+            'period' => $lesson->period,
+        ]);
+    }
+
     public function autoFillTeacher(int $teacher_id, string $start)
     {
         $periods = config('periods');
@@ -177,5 +211,37 @@ class LessonController extends Controller
         $lesson->delete();
 
         return response()->json(['success' => true]);
+    }
+
+    public function assignStudentLessons(int $user_id, string $start)
+    {
+        $startDate = Carbon::parse($start)->startOfWeek();
+        $endDate   = (clone $startDate)->endOfWeek();
+
+        $user = User::with('subjects')->findOrFail($user_id);
+
+        foreach ($user->subjects as $subject) {
+            $needed = ($subject->pivot->quantity ?? 0) - $user->lessons()
+                ->where('subject_id', $subject->id)
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->count();
+
+            if ($subject->code !== 'IND' || $needed <= 0) {
+                continue;
+            }
+
+            $available = Lesson::where('subject_id', $subject->id)
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->whereDoesntHave('users')
+                ->orderBy('date')
+                ->limit($needed)
+                ->get();
+
+            foreach ($available as $lesson) {
+                $lesson->users()->attach($user_id);
+            }
+        }
+
+        return redirect()->back()->with('message', 'Lessons assigned.');
     }
 }
