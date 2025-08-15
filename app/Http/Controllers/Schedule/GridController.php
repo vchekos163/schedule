@@ -56,7 +56,8 @@ class GridController extends Controller
         } else {
             $lessons = Lesson::with(['subject', 'room', 'teachers.user'])
                 ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->get();
+                ->get()
+                ->filter(fn($lesson) => optional($lesson->subject)->code !== 'IND');
 
             $subjects = Subject::with('teachers')->get()->map(function ($subject) use ($startDate, $endDate) {
                 $lessonsCount = Lesson::where('subject_id', $subject->id)

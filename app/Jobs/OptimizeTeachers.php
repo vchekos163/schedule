@@ -48,6 +48,9 @@ class OptimizeTeachers implements ShouldQueue
 
         $existingSchedule = Lesson::select('id','date','room_id','subject_id')
             ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereHas('subject', function ($q) {
+                $q->where('code', '!=', 'IND');
+            })
             ->with([
                 'subject:id,priority',
                 'subject.rooms:id',
