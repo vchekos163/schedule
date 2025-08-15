@@ -319,26 +319,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const jobId = data.jobId;
                 if (!jobId) throw new Error('No job id');
                 const poll = setInterval(() => {
-                    fetch(`/schedule/index/getOptimizedTeachers/jobId/${jobId}`)
+                    fetch(`/schedule/index/getOptimizedTeachers/jobId/14116a91-76b3-4984-8a01-5af402f0ca5b`)
                         .then(r => r.json())
                         .then(result => {
                             if (result.status !== 'pending') {
                                 clearInterval(poll);
                                 generatedLessons = result.lessons || [];
                                 const events = (result.events || []).map(ev => {
-                                    const [date, time] = ev.start.split('T');
-                                    const period = timeToPeriod[time.slice(0,5)];
                                     return {
                                         id: ev.id,
                                         title: ev.title,
                                         color: ev.color,
-                                        date,
-                                        period,
-                                        reason: ev.extendedProps?.reason || '',
-                                        room: ev.extendedProps?.room || '',
-                                        teachers: ev.extendedProps?.teachers || '',
+                                        date: ev.date,
+                                        period: ev.period,
+                                        reason: ev.reason,
+                                        room: ev.room ,
+                                        teachers: ev.teachers,
                                     };
                                 }).filter(e => e.period);
+                                console.log(events);
                                 clearLessons();
                                 events.forEach(addLessonToTable);
                                 document.getElementById('save').classList.remove('hidden');

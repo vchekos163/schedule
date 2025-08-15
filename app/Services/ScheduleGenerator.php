@@ -41,25 +41,17 @@ Rearrange ALL the lessons to:
 - Analyse students subjects, and their load
 - Choose rooms that match capacity and features so they are not overfilled
 - Write brief reasons why this lesson on this place
-- Use these fixed periods (start | end):
-  1st lesson - 09:00 | 09:45
-  2nd lesson - 09:50 | 10:35
-  3rd lesson - 10:50 | 11:35
-  4th lesson - 11:40 | 12:25
-  5th lesson - 13:00 | 13:45
-  6th lesson - 13:50 | 14:35
-  7th lesson - 14:40 | 15:25
+- Use fixed lesson periods from 1 to 7
 - Week only from monday to friday
 
 Return only valid JSON array of lessons:
 [
   {
     "lesson_id": 1,
-    "reason": "why"
+    "reason": "why",
     "room_id": 301,
     "date": "2025-08-05",
-    "start_time": "09:00",
-    "end_time": "09:45",
+    "period": 1
   }
 ]
 PROMPT;

@@ -13,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OptimizeTeachers implements ShouldQueue
 {
@@ -35,15 +36,21 @@ class OptimizeTeachers implements ShouldQueue
      */
     public function handle(): void
     {
+
+        Log::info('OptimizeTeachers: handle', [
+            'jobId'     => $this->jobId,
+            'cache_key' => "optimize_teachers_{$this->jobId}",
+        ]);
+
         $weekStart = Carbon::parse($this->start)->startOfWeek(Carbon::MONDAY);
         $weekEnd   = $weekStart->copy()->addDays(4);
 
-        $existingSchedule = Lesson::select('id','date','start_time','end_time','room_id','subject_id')
+        $existingSchedule = Lesson::select('id','date','room_id','subject_id')
             ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->with([
                 'subject:id,priority',
                 'room:id,capacity',
-                'teachers:id,availability,max_lessons,max_gaps',
+                'teachers:id,availability,max_lessons,max_days,max_gaps',
             ])
             ->get();
 
@@ -65,6 +72,7 @@ class OptimizeTeachers implements ShouldQueue
                         'availability' => $this->compressAvailabilityNoGaps($t->availability ?? []),
                         'max_lessons'  => $t->max_lessons ?? null,
                         'max_gaps'     => $t->max_gaps ?? null,
+                        'max_days_week' => optional($t->max_days < 5 ? $t->max_days : null),
                     ];
                 })->values()->all(),
                 'students_count' => (int) $subjectToStudentsQty->get($l->subject_id, 0),
@@ -91,13 +99,11 @@ class OptimizeTeachers implements ShouldQueue
                     'id'    => $id,
                     'title' => '',
                     'color' => '#64748b',
-                    'start' => $lessonData['date'] . 'T' . $lessonData['start_time'],
-                    'end'   => $lessonData['date'] . 'T' . $lessonData['end_time'],
-                    'extendedProps' => [
-                        'reason'   => $lessonData['reason'] ?? '',
-                        'room'     => '',
-                        'teachers' => '',
-                    ],
+                    'period' => $lessonData['period'],
+                    'date' => $lessonData['date'],
+                    'reason'   => $lessonData['reason'] ?? '',
+                    'room'     => '',
+                    'teachers' => '',
                 ];
 
                 if ($id) {
@@ -105,8 +111,8 @@ class OptimizeTeachers implements ShouldQueue
                     if ($lesson) {
                         $event['title'] = $lesson->subject->code ?? ($lesson->subject->name ?? '');
                         $event['color'] = $lesson->subject->color ?? '#64748b';
-                        $event['extendedProps']['room'] = $lesson->room->code ?? ($lesson->room->name ?? '');
-                        $event['extendedProps']['teachers'] = $lesson->teachers
+                        $event['room'] = $lesson->room->code ?? ($lesson->room->name ?? '');
+                        $event['teachers'] = $lesson->teachers
                             ->map(fn($t) => $t->user->name)
                             ->join(', ');
                     }
