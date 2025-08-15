@@ -25,6 +25,9 @@ class Table extends DataTableComponent
     {
         return [
             Column::make('Room Name', 'name')->sortable()->searchable(),
+            Column::make('Schedule')
+                ->label(fn($row) => view('components.schedule-link', ['link' => '/schedule/grid/rooms/room_id/'.$row->id]))
+                ->html(),
             Column::make('Code', 'code')->sortable()->searchable(),
             Column::make('Capacity', 'capacity')->sortable(),
             Column::make('Purpose', 'purpose')->sortable()->searchable(),
