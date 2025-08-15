@@ -14,6 +14,9 @@
         </h1>
         <h2 class="text-sm font-semibold mb-2">Subjects</h2>
         <div id="subject-palette"></div>
+
+        <h2 class="text-sm font-semibold mt-4 mb-2">Unassigned Lessons</h2>
+        <div id="unassigned-lessons"></div>
     </div>
 
     <div class="flex-1">
@@ -57,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userId = {{ $user->id }};
     const table = document.getElementById('schedule-table');
     const subjectPalette = document.getElementById('subject-palette');
+    const unassignedList = document.getElementById('unassigned-lessons');
     let currentMonday = startOfWeek(new Date());
     let dragType = null;
     const periods = @json($periods);
@@ -84,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(r=>r.json())
             .then(data => {
                 renderSubjects(data.subjects || []);
+                renderUnassigned(data.unassigned || []);
                 clearLessons();
                 (data.events || []).forEach(addLessonToTable);
                 for (let day=1; day<=5; day++) {
@@ -113,6 +118,21 @@ document.addEventListener('DOMContentLoaded', () => {
             div.style.backgroundColor=sub.color || '#64748b';
             div.textContent=`${div.dataset.label} (${sub.quantity})`;
             subjectPalette.appendChild(div);
+        });
+    }
+    function renderUnassigned(lessons){
+        unassignedList.innerHTML='';
+        lessons.forEach(l=>{
+            const div=document.createElement('div');
+            div.className='unassigned-item cursor-pointer text-white px-2 py-1 rounded mb-2';
+            div.dataset.lessonId=l.id;
+            div.dataset.subjectId=l.subject_id;
+            div.style.backgroundColor=l.color || '#64748b';
+            const date=new Date(l.date);
+            const options={weekday:'short', month:'short', day:'numeric'};
+            const dateStr=date.toLocaleDateString(undefined, options);
+            div.textContent=`${l.title} ${dateStr} P${l.period}`;
+            unassignedList.appendChild(div);
         });
     }
     function addLessonToTable(ev){
@@ -167,6 +187,20 @@ document.addEventListener('DOMContentLoaded', () => {
             dragType = 'subject';
             e.dataTransfer.setData('subjectId', e.target.dataset.subjectId);
         }
+    });
+    unassignedList.addEventListener('click', e=>{
+        const item = e.target.closest('.unassigned-item');
+        if(!item) return;
+        const lessonId = item.dataset.lessonId;
+        const subjectId = item.dataset.subjectId;
+        if(!confirm('Assign this lesson to the student?')) return;
+        fetch(`/schedule/lesson/assignToStudent/lesson_id/${lessonId}/user_id/${userId}`)
+            .then(r=>r.json())
+            .then(data=>{
+                addLessonToTable(data);
+                item.remove();
+                decreaseSubjectQuantity(subjectId);
+            });
     });
     table.addEventListener('dragstart', e=>{
         if(e.target.classList.contains('lesson')){
