@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tooltip = document.createElement('div');
         tooltip.className = 'reason-tooltip absolute z-50 left-4 top-4 text-red-600 bg-white border border-red-300 px-3 py-2 text-xs rounded shadow hidden';
         tooltip.textContent = ev.reason || 'No reason provided.';
-        tooltip.style.width='14rem';
+        tooltip.style.width='10rem';
         reasonBtn.appendChild(tooltip);
         reasonBtn.addEventListener('click', () => {
             tooltip.classList.toggle('hidden');
@@ -184,22 +184,37 @@ document.addEventListener('DOMContentLoaded', () => {
         iconWrap.className = 'flex flex-col gap-1';
         iconWrap.appendChild(reasonBtn);
 
-        if(ev.students && ev.students.length){
+        if (ev.students && ev.students.length) {
             const studentsBtn = document.createElement('span');
             studentsBtn.className = 'students-btn cursor-pointer text-white text-xs relative';
             studentsBtn.textContent = '👥';
+
             const list = document.createElement('div');
-            list.className = 'students-list absolute z-50 left-4 top-4 text-blue-600 bg-white border border-blue-300 px-3 py-2 text-xs rounded shadow hidden';
+            list.className = 'students-list absolute z-50 left-4 top-6 text-blue-600 bg-white border border-blue-300 text-xs rounded shadow hidden';
+            list.style.width = '12rem';
+
+            // Header with count
+            const header = document.createElement('div');
+            header.className = 'px-3 py-2 border-b bg-blue-50 text-gray-700 font-semibold';
+            header.textContent = `Students (${ev.students.length})`;
+            list.appendChild(header);
+            // Scrollable body
+            const body = document.createElement('div');
+            body.className = 'max-h-48 overflow-auto px-3 py-2';
             ev.students.forEach(s => {
                 const item = document.createElement('div');
+                item.className = 'py-1';
                 item.dataset.id = s.id;
                 item.textContent = s.name;
-                list.appendChild(item);
+                body.appendChild(item);
             });
+            list.appendChild(body);
             studentsBtn.appendChild(list);
-            studentsBtn.addEventListener('click', () => {
+            studentsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 list.classList.toggle('hidden');
             });
+            document.addEventListener('click', () => list.classList.add('hidden'));
             iconWrap.appendChild(studentsBtn);
         }
 
