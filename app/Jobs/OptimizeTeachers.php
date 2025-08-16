@@ -81,13 +81,16 @@ class OptimizeTeachers implements ShouldQueue
                 'subject_id'    => $l->subject->id,
                 'priority'    => optional($l->subject)->priority,
                 'teachers'    => $l->teachers->map(function ($t) {
-                    return [
+                    $return = [
                         'id'           => $t->id,
                         'availability' => $this->compressAvailabilityNoGaps($t->availability ?? []),
-                        'max_lessons'  => $t->max_lessons ?? null,
+                        'max_lessons_per_day'  => $t->max_lessons ?? null,
                         'max_gaps'     => $t->max_gaps ?? null,
-                        'max_days' => optional($t->max_days < 5 ? $t->max_days : null),
                     ];
+                    if ($t->max_days < 5){
+                        $return['max_days'] = $t->max_days;
+                    }
+                    return $return;
                 })->values()->all(),
                 'rooms' => $l->subject
                     ? $l->subject->rooms
@@ -102,7 +105,7 @@ class OptimizeTeachers implements ShouldQueue
             ];
         })->values();
 
-        $rooms = Room::select('id', 'purpose', 'capacity')->get();
+        $rooms = Room::select('id', 'capacity')->get();
 
         $newSchedule = [];
         $events = collect();
@@ -195,6 +198,7 @@ class OptimizeTeachers implements ShouldQueue
             $currentState = null;
             $rangeStart   = null;
             $prevPeriod   = null;
+            $ranges       = []; // collect ranges for this day
 
             foreach ($slots as $period => $state) {
                 $periodNumber = (int) $period;
@@ -202,7 +206,7 @@ class OptimizeTeachers implements ShouldQueue
 
                 if ($state === 'UNAVAILABLE') {
                     if ($currentState !== null) {
-                        $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
+                        $ranges[] = "{$rangeStart}-{$prevPeriod}";
                         $currentState = null;
                         $rangeStart   = null;
                         $prevPeriod   = null;
@@ -216,7 +220,7 @@ class OptimizeTeachers implements ShouldQueue
                 }
 
                 if ($currentState !== null) {
-                    $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
+                    $ranges[] = "{$rangeStart}-{$prevPeriod}";
                 }
 
                 $currentState = $state;
@@ -225,7 +229,11 @@ class OptimizeTeachers implements ShouldQueue
             }
 
             if ($currentState !== null) {
-                $out[] = "{$shortDay}:{$rangeStart}-{$prevPeriod}:{$currentState}";
+                $ranges[] = "{$rangeStart}-{$prevPeriod}";
+            }
+
+            if (!empty($ranges)) {
+                $out[] = $shortDay . ':' . implode(',', $ranges);
             }
         }
 

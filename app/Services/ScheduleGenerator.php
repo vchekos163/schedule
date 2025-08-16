@@ -43,16 +43,17 @@ Given the following data:
 {$data}
 
 Rearrange ALL the lessons to:
+- Use periods 1-7 per day
 - Respect teacher availability and max gaps
 - Assign each student the required quantity of lessons for every subject
-- Analyse student assigns and ensure that no student has two different lessons scheduled in the same date and period
-- If a student has two different lessons scheduled in the same date and period write reason
+- Ensure that no student has two different lessons scheduled in the same date and period
 - Include the student IDs for each lesson in a `student_ids` array
 - Choose rooms that match capacity and features so they are not overfilled
-- Write brief reasons why this lesson on this place
+- Write very short reason why this lesson on this place
 - If max_days stated you can choose any [max_days] days of the week
-- Lower number means a higher priority
 - If a room is assigned to multiple subjects, give it to the subject with the highest room priority
+- Lower number means a higher priority
+- Ensure that no room has two different lessons scheduled in the same date and period
 PROMPT;
     }
 
@@ -125,8 +126,8 @@ PROMPT;
             CURLOPT_HTTPHEADER => $headers
         ]);
 
-        curl_setopt($ch, CURLOPT_TIMEOUT, 0); // no total time limit
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+//        curl_setopt($ch, CURLOPT_TIMEOUT, 0); // no total time limit
+//        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
         $result = curl_exec($ch);
 
