@@ -2,6 +2,11 @@
 
 @section('content')
 <div class="container mx-auto p-4 overflow-x-auto max-w-full">
+    <div class="flex items-center justify-center mb-4 gap-2">
+        <a href="{{ url('/schedule/students/index/start/' . $prevWeek) }}" class="px-2 py-1 bg-gray-200 rounded">Prev</a>
+        <span class="font-semibold">{{ $startDate->toDateString() }}</span>
+        <a href="{{ url('/schedule/students/index/start/' . $nextWeek) }}" class="px-2 py-1 bg-gray-200 rounded">Next</a>
+    </div>
     <table class="min-w-full border text-sm">
         <thead>
             <tr>
