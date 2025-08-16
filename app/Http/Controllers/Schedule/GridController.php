@@ -204,6 +204,7 @@ class GridController extends Controller
                 'teachers' => $lesson->teachers
                     ->map(fn($teacher) => $teacher->user->name)
                     ->join(', '),
+                'subject_id' => $lesson->subject_id,
             ];
         });
 
