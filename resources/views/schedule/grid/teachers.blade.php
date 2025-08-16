@@ -237,14 +237,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const details = document.createElement('div');
-        if(ev.isFree){
-            details.innerHTML = `<div class="font-semibold">FREE</div>`;
+        const studentCount = Array.isArray(ev.students) ? ev.students.length : 0;
+
+        if (ev.isFree) {
+            details.innerHTML = `
+                <div class="font-semibold">
+                    FREE${studentCount ? ` (${studentCount})` : ''}
+                </div>
+            `;
         } else {
             details.innerHTML = `
-            <div class="font-semibold">${ev.title || ''}</div>
-            <div class="text-sm text-gray-200">${ev.room || ''}</div>
-            <div class="text-xs text-gray-300 teachers-text">${ev.teachers || ''}</div>
-        `;
+                <div class="font-semibold">
+                    ${ev.title || ''}${studentCount ? ` (${studentCount})` : ''}
+                </div>
+                <div class="text-sm text-gray-100">${ev.room || ''}</div>
+                <div class="text-xs text-gray-100 teachers-text">${ev.teachers || ''}</div>
+            `;
         }
 
         wrap.appendChild(iconWrap);
