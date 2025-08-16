@@ -108,27 +108,48 @@ PROMPT;
                         "additionalProperties" => false
                     ]
                 ]
-            ]
+            ],
+            'stream' => true,
         ];
 
         $headers = [
             "Authorization: Bearer {$apiKey}",
-            "Content-Type: application/json"
+            "Content-Type: application/json",
+            'Accept: text/event-stream',
         ];
 
         $ch = curl_init($url);
 
+        $content = '';
         curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($data),
-            CURLOPT_HTTPHEADER => $headers
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_WRITEFUNCTION => function ($ch, $data) use (&$content) {
+                $lines = explode("\n", trim($data));
+                foreach ($lines as $line) {
+                    if (strpos($line, 'data: ') !== 0) {
+                        continue;
+                    }
+                    $payload = substr($line, 6);
+                    if ($payload === '[DONE]') {
+                        continue;
+                    }
+                    $json = json_decode($payload, true);
+                    if (isset($json['error']['message'])) {
+                        $content = json_encode(['error' => $json['error']['message']]);
+                        continue;
+                    }
+                    $content .= $json['choices'][0]['delta']['content'] ?? '';
+                }
+                return strlen($data);
+            },
         ]);
 
-        $result = curl_exec($ch);
+        curl_exec($ch);
 
         Log::info('OptimizeTeachers: generation response', [
-            'result'     => $result,
+            'result' => $content,
         ]);
 
         if (curl_errno($ch)) {
@@ -137,16 +158,6 @@ PROMPT;
 
         curl_close($ch);
 
-        $json = json_decode($result, true);
-
-        // If OpenAI returned an error at the root level, surface that message
-        if (isset($json['error']['message'])) {
-            return json_encode(['error' => $json['error']['message']]);
-        }
-
-        $content = $json['choices'][0]['message']['content'] ?? '[]';
-
-        // Sometimes the content itself is a JSON object with an `error` key
         $decoded = json_decode($content, true);
         if (json_last_error() === JSON_ERROR_NONE && isset($decoded['error'])) {
             return json_encode(['error' => $decoded['error']]);
