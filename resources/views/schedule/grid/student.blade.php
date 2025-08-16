@@ -147,6 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
         lesson.draggable=true;
         lesson.style.backgroundColor=ev.color || '#64748b';
         lesson.dataset.id=ev.id;
+        lesson.dataset.subjectCode = ev.title || '';
+        lesson.dataset.subjectId = ev.subject_id || '';
 
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn absolute top-0 right-0 text-xl text-white hover:text-red-300';
@@ -230,7 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         period:period,
                         reason:data.reason,
                         room:data.room,
-                        teachers:data.teachers
+                        teachers:data.teachers,
+                        subject_id:data.subject_id
                     });
                     decreaseSubjectQuantity(subjectId);
                 });
@@ -241,23 +244,47 @@ document.addEventListener('DOMContentLoaded', () => {
             const fromCell   = lessonEl.closest('td[data-day][data-period]');
             const fromDay    = fromCell ? fromCell.dataset.day : null;
             const fromPeriod = fromCell ? fromCell.dataset.period : null;
-            cell.appendChild(lessonEl);
-            const date = new Date(currentMonday);
-            date.setDate(date.getDate() + (day - 1));
-            const ymd = formatYMD(date);
-            fetch(`/schedule/lesson/update/lesson_id/${lessonId}/date/${ymd}/period/${period}`)
-                .then(res => { if (!res.ok) throw new Error('Update failed'); })
-                .catch(err => {
-                    console.error(err);
-                    if (fromCell) fromCell.appendChild(lessonEl);
-                });
+            if (fromDay === String(day) && fromPeriod === period) return;
+            const subjectId = lessonEl.dataset.subjectId;
+            const subjectCode = lessonEl.dataset.subjectCode;
+            if (subjectCode === 'IND') {
+                cell.appendChild(lessonEl);
+                fetch(`/schedule/lesson/update/lesson_id/${lessonId}/date/${ymd}/period/${period}`)
+                    .then(res => { if (!res.ok) throw new Error('Update failed'); })
+                    .catch(err => {
+                        console.error(err);
+                        if (fromCell) fromCell.appendChild(lessonEl);
+                    });
+            } else {
+                fetch(`/schedule/lesson/createFromSubjectPeriodStudent/subject_id/${subjectId}/date/${ymd}/period/${period}/user_id/${userId}`)
+                    .then(res => {
+                        if (!res.ok) throw new Error('Assignment failed');
+                        return res.json();
+                    })
+                    .then(data => {
+                        addLessonToTable(data);
+                        return fetch(`/schedule/lesson/delete/lesson_id/${lessonId}/user_id/${userId}`);
+                    })
+                    .then(() => {
+                        lessonEl.remove();
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        if (fromCell) fromCell.appendChild(lessonEl);
+                    });
+            }
         }
     });
     table.addEventListener('click', e=>{
         if(e.target.classList.contains('delete-btn')){
             const id = e.target.dataset.id;
+            const lessonEl = e.target.closest('.lesson');
+            const code = lessonEl ? lessonEl.dataset.subjectCode : null;
             if(!confirm('Delete this lesson?')) return;
-            fetch(`/schedule/lesson/delete/lesson_id/${id}`).then(()=> loadWeek());
+            const url = code === 'IND'
+                ? `/schedule/lesson/delete/lesson_id/${id}`
+                : `/schedule/lesson/delete/lesson_id/${id}/user_id/${userId}`;
+            fetch(url).then(()=> loadWeek());
         }
     });
     function decreaseSubjectQuantity(id){
