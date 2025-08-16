@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container mx-auto p-4 overflow-x-auto">
+<div class="container mx-auto p-4 overflow-x-auto max-w-full">
     <table class="min-w-full border text-sm">
         <thead>
             <tr>
