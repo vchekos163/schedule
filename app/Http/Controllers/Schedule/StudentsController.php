@@ -10,10 +10,12 @@ use Illuminate\Support\Facades\Config;
 
 class StudentsController extends Controller
 {
-    public function index()
+    public function index(?string $start = null)
     {
-        $startDate = Carbon::now()->startOfWeek();
-        $endDate   = (clone $startDate)->addDays(4);
+        $startDate = $start ? Carbon::parse($start)->startOfWeek() : Carbon::now()->startOfWeek();
+        $prevWeek  = $startDate->copy()->subWeek()->toDateString();
+        $nextWeek  = $startDate->copy()->addWeek()->toDateString();
+        $endDate   = $startDate->copy()->addDays(4);
 
         $days = [
             1 => 'Mon',
@@ -47,11 +49,13 @@ class StudentsController extends Controller
         $students = User::role('student')->orderBy('name')->get();
 
         return view('schedule.students.index', [
-            'students'            => $students,
-            'days'                => $days,
-            'periods'             => $periods,
-            'startDate'           => $startDate,
-            'studentLessons'      => $studentLessons,
+            'students'             => $students,
+            'days'                 => $days,
+            'periods'              => $periods,
+            'startDate'            => $startDate,
+            'prevWeek'             => $prevWeek,
+            'nextWeek'             => $nextWeek,
+            'studentLessons'       => $studentLessons,
             'studentsWithConflict' => $studentsWithConflict,
         ]);
     }
