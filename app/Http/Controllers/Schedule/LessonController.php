@@ -241,75 +241,84 @@ class LessonController extends Controller
         ]);
     }
 
-    public function assignStudentLessons(int $user_id, string $start)
+    public function assignStudentLessons(?int $user_id, string $start)
     {
         $startDate = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);
         $endDate   = (clone $startDate)->endOfWeek(Carbon::SUNDAY);
 
-        /** @var \App\Models\User $user */
-        $user = User::with('subjects')->findOrFail($user_id);
+        $usersQuery = User::with('subjects');
 
-        // Build a set of already occupied slots: "Y-m-d|period"
-        $occupied = $user->lessons()
-            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->get(['date', 'period'])
-            ->map(fn($l) => $l->date . '|' . $l->period)
-            ->all();
-        $occupied = array_fill_keys($occupied, true);
+        if ($user_id !== null) {
+            $usersQuery->where('id', $user_id);
+        } else {
+            $usersQuery->role('student');
+        }
 
-        foreach ($user->subjects as $subject) {
-            // How many we still need this week for this subject
-            $already = $user->lessons()
-                ->where('subject_id', $subject->id)
+        $users = $usersQuery->get();
+
+        foreach ($users as $user) {
+            // Build a set of already occupied slots: "Y-m-d|period"
+            $occupied = $user->lessons()
                 ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->count();
+                ->get(['date', 'period'])
+                ->map(fn($l) => $l->date . '|' . $l->period)
+                ->all();
+            $occupied = array_fill_keys($occupied, true);
 
-            $needed = max(0, ($subject->pivot->quantity ?? 0) - $already);
-            if ($needed <= 0) {
-                continue;
-            }
+            foreach ($user->subjects as $subject) {
+                // How many we still need this week for this subject
+                $already = $user->lessons()
+                    ->where('subject_id', $subject->id)
+                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->count();
 
-            // Candidate lessons for this subject this week, that the student isn’t already attached to
-            $candidates = Lesson::where('subject_id', $subject->id)
-                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->whereDoesntHave('users', fn($q) => $q->where('users.id', $user_id))
-                ->orderBy('date')
-                ->orderBy('period')
-                ->get(['id','date','period']);
-
-            if ($candidates->isEmpty()) {
-                continue;
-            }
-
-            $toAttach = [];
-
-            // Pass 1: pick only non-conflicting slots
-            foreach ($candidates as $lesson) {
-                if ($needed <= 0) break;
-                $key = $lesson->date . '|' . $lesson->period;
-                if (!isset($occupied[$key])) {
-                    $toAttach[] = $lesson->id;
-                    $occupied[$key] = true; // block this slot for any subject
-                    $needed--;
+                $needed = max(0, ($subject->pivot->quantity ?? 0) - $already);
+                if ($needed <= 0) {
+                    continue;
                 }
-            }
 
-            // Pass 2 (fallback): if still needed, allow conflicts
-            if ($needed > 0) {
+                // Candidate lessons for this subject this week, that the student isn’t already attached to
+                $candidates = Lesson::where('subject_id', $subject->id)
+                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->whereDoesntHave('users', fn($q) => $q->where('users.id', $user->id))
+                    ->orderBy('date')
+                    ->orderBy('period')
+                    ->get(['id','date','period']);
+
+                if ($candidates->isEmpty()) {
+                    continue;
+                }
+
+                $toAttach = [];
+
+                // Pass 1: pick only non-conflicting slots
                 foreach ($candidates as $lesson) {
                     if ($needed <= 0) break;
-                    // skip ones we already chose in pass 1
-                    if (in_array($lesson->id, $toAttach, true)) continue;
-
-                    $toAttach[] = $lesson->id;
-                    // (we do NOT add to $occupied to allow same slot if unavoidable)
-                    $needed--;
+                    $key = $lesson->date . '|' . $lesson->period;
+                    if (!isset($occupied[$key])) {
+                        $toAttach[] = $lesson->id;
+                        $occupied[$key] = true; // block this slot for any subject
+                        $needed--;
+                    }
                 }
-            }
 
-            // Attach in bulk (avoids duplicates)
-            if (!empty($toAttach)) {
-                $user->lessons()->attach($toAttach);
+                // Pass 2 (fallback): if still needed, allow conflicts
+                if ($needed > 0) {
+                    foreach ($candidates as $lesson) {
+                        if ($needed <= 0) break;
+                        // skip ones we already chose in pass 1
+                        if (in_array($lesson->id, $toAttach, true)) continue;
+
+                        $toAttach[] = $lesson->id;
+                        // (we do NOT add to $occupied to allow same slot if unavoidable)
+                        $needed--;
+                    }
+                }
+
+                // Attach in bulk (avoids duplicates)
+                if (!empty($toAttach)) {
+                    $user->lessons()->attach($toAttach);
+                }
             }
         }
 
