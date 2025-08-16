@@ -29,21 +29,30 @@ class StudentsController extends Controller
             ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
             ->get();
 
-        $studentLessons = [];
+        $studentLessons       = [];
+        $studentsWithConflict = [];
+
         foreach ($lessons as $lesson) {
             foreach ($lesson->users as $user) {
-                $studentLessons[$user->id][$lesson->date][$lesson->period] = $lesson;
+                $studentLessons[$user->id][$lesson->date][$lesson->period][] = $lesson;
+
+                if (
+                    count($studentLessons[$user->id][$lesson->date][$lesson->period]) > 1
+                ) {
+                    $studentsWithConflict[$user->id] = true;
+                }
             }
         }
 
         $students = User::role('student')->orderBy('name')->get();
 
         return view('schedule.students.index', [
-            'students'       => $students,
-            'days'           => $days,
-            'periods'        => $periods,
-            'startDate'      => $startDate,
-            'studentLessons' => $studentLessons,
+            'students'            => $students,
+            'days'                => $days,
+            'periods'             => $periods,
+            'startDate'           => $startDate,
+            'studentLessons'      => $studentLessons,
+            'studentsWithConflict' => $studentsWithConflict,
         ]);
     }
 }

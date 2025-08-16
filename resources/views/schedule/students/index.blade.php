@@ -21,15 +21,21 @@
         <tbody>
             @foreach($students as $student)
                 <tr>
-                    <td class="border px-2 py-1">{{ $student->name }}</td>
+                    <td class="border px-2 py-1 {{ isset($studentsWithConflict[$student->id]) ? 'text-red-500' : '' }}">
+                        {{ $student->name }}
+                    </td>
                     @foreach($days as $dayNumber => $dayLabel)
                         @for($period = 1; $period <= count($periods); $period++)
                             @php
-                                $date = $startDate->copy()->addDays($dayNumber - 1)->toDateString();
-                                $lesson = $studentLessons[$student->id][$date][$period] ?? null;
+                                $date    = $startDate->copy()->addDays($dayNumber - 1)->toDateString();
+                                $lessons = $studentLessons[$student->id][$date][$period] ?? [];
                             @endphp
                             <td class="border px-1 py-1 text-center">
-                                {{ $lesson ? $lesson->subject->code : '' }}
+                                @foreach($lessons as $lesson)
+                                    <div class="mb-0.5 text-white" style="background-color: {{ $lesson->subject->color }}">
+                                        {{ $lesson->subject->code }}
+                                    </div>
+                                @endforeach
                             </td>
                         @endfor
                     @endforeach
