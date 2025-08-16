@@ -45,7 +45,8 @@ Given the following data:
 Rearrange ALL the lessons to:
 - Respect teacher availability and max gaps
 - Assign each student the required quantity of lessons for every subject
-- Ensure that no student has two different lessons scheduled in the same date and period
+- Analyse student assigns and ensure that no student has two different lessons scheduled in the same date and period
+- If a student has two different lessons scheduled in the same date and period write reason
 - Include the student IDs for each lesson in a `student_ids` array
 - Choose rooms that match capacity and features so they are not overfilled
 - Write brief reasons why this lesson on this place
