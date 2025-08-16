@@ -1,8 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 .grid-head-button {
-    display: inline-flex;
     align-items: center;
     padding: 0.5rem 1rem;
     font-size: 0.875rem; /* text-sm */
@@ -16,6 +16,14 @@
     text-decoration: none;
 }
 
+.grid-head-button:not(.hidden) {
+    display: inline-flex;
+}
+
+.hidden {
+    display: none !important;
+}
+
 .grid-head-button:hover {
     background-color: #4b5563; /* gray-700 */
     transform: scale(1.03);
@@ -25,7 +33,6 @@
     outline: none;
     box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.5); /* focus:ring-gray */
 }
-
 
 .btn-cancel {
     display: inline-flex;
