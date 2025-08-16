@@ -100,6 +100,20 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 renderSubjects(data.subjects || []);
                 clearLessons();
+                if (data.free) {
+                    Object.entries(data.free).forEach(([date, periods]) => {
+                        Object.entries(periods).forEach(([period, students]) => {
+                            addLessonToTable({
+                                date: date,
+                                period: period,
+                                title: 'FREE',
+                                color: '#d1d5db',
+                                students: students,
+                                isFree: true
+                            });
+                        });
+                    });
+                }
                 (data.events || []).forEach(addLessonToTable);
                 // Update weekday headers with date
                 for (let day = 1; day <= 5; day++) {
@@ -146,59 +160,63 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!period) return;
         const cell = table.querySelector(`td[data-day="${day}"][data-period="${period}"]`);
         if(!cell) return;
-        const lesson=document.createElement('div');
-        lesson.className='lesson relative text-xs text-white px-1 py-1 rounded mb-1';
-        lesson.draggable=true;
-        lesson.style.backgroundColor=ev.color || '#64748b';
-        lesson.dataset.id=ev.id;
 
-        const delBtn = document.createElement('button');
-        delBtn.className = 'delete-btn absolute top-0 right-0 text-xl text-white hover:text-red-300';
-        delBtn.dataset.id = ev.id;
-        delBtn.textContent = '×';
-        lesson.appendChild(delBtn);
+        const lesson=document.createElement('div');
+        let cls = 'lesson relative text-xs px-1 py-1 rounded mb-1';
+        if(ev.isFree){
+            cls += ' text-gray-800';
+            lesson.style.backgroundColor=ev.color || '#d1d5db';
+        } else {
+            cls += ' text-white';
+            lesson.style.backgroundColor=ev.color || '#64748b';
+            lesson.draggable=true;
+            lesson.dataset.id=ev.id;
+        }
+        lesson.className = cls;
+
+        if(!ev.isFree){
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn absolute top-0 right-0 text-xl text-white hover:text-red-300';
+            delBtn.dataset.id = ev.id;
+            delBtn.textContent = '×';
+            lesson.appendChild(delBtn);
+        }
 
         const wrap = document.createElement('div');
         wrap.className = 'flex items-start gap-1';
 
-        const reasonBtn = document.createElement('span');
-        reasonBtn.className = 'reason-btn cursor-pointer text-white text-xs relative';
-        reasonBtn.textContent = '❓';
-        const tooltip = document.createElement('div');
-        tooltip.className = 'reason-tooltip absolute z-50 left-4 top-4 text-red-600 bg-white border border-red-300 px-3 py-2 text-xs rounded shadow hidden';
-        tooltip.textContent = ev.reason || 'No reason provided.';
-        tooltip.style.width='10rem';
-        reasonBtn.appendChild(tooltip);
-        reasonBtn.addEventListener('click', () => {
-            tooltip.classList.toggle('hidden');
-        });
-
-        const details = document.createElement('div');
-        details.innerHTML = `
-            <div class="font-semibold">${ev.title || ''}</div>
-            <div class="text-sm text-gray-200">${ev.room || ''}</div>
-            <div class="text-xs text-gray-300 teachers-text">${ev.teachers || ''}</div>
-        `;
-
         const iconWrap = document.createElement('div');
         iconWrap.className = 'flex flex-col gap-1';
-        iconWrap.appendChild(reasonBtn);
+
+        if(!ev.isFree){
+            const reasonBtn = document.createElement('span');
+            reasonBtn.className = 'reason-btn cursor-pointer text-white text-xs relative';
+            reasonBtn.textContent = '❓';
+            const tooltip = document.createElement('div');
+            tooltip.className = 'reason-tooltip absolute z-50 left-4 top-4 text-red-600 bg-white border border-red-300 px-3 py-2 text-xs rounded shadow hidden';
+            tooltip.textContent = ev.reason || 'No reason provided.';
+            tooltip.style.width='10rem';
+            reasonBtn.appendChild(tooltip);
+            reasonBtn.addEventListener('click', () => {
+                tooltip.classList.toggle('hidden');
+            });
+            iconWrap.appendChild(reasonBtn);
+        }
 
         if (ev.students && ev.students.length) {
             const studentsBtn = document.createElement('span');
-            studentsBtn.className = 'students-btn cursor-pointer text-white text-xs relative';
+            studentsBtn.className = `students-btn cursor-pointer text-xs relative ${ev.isFree ? 'text-gray-800' : 'text-white'}`;
             studentsBtn.textContent = '👥';
 
             const list = document.createElement('div');
             list.className = 'students-list absolute z-50 left-4 top-6 text-blue-600 bg-white border border-blue-300 text-xs rounded shadow hidden';
             list.style.width = '12rem';
 
-            // Header with count
             const header = document.createElement('div');
             header.className = 'px-3 py-2 border-b bg-blue-50 text-gray-700 font-semibold';
             header.textContent = `Students (${ev.students.length})`;
             list.appendChild(header);
-            // Scrollable body
+
             const body = document.createElement('div');
             body.className = 'max-h-48 overflow-auto px-3 py-2';
             ev.students.forEach(s => {
@@ -218,11 +236,34 @@ document.addEventListener('DOMContentLoaded', () => {
             iconWrap.appendChild(studentsBtn);
         }
 
+        const details = document.createElement('div');
+        const studentCount = Array.isArray(ev.students) ? ev.students.length : 0;
+
+        if (ev.isFree) {
+            details.innerHTML = `
+                <div class="font-semibold">
+                    FREE${studentCount ? ` (${studentCount})` : ''}
+                </div>
+            `;
+        } else {
+            details.innerHTML = `
+                <div class="font-semibold">
+                    ${ev.title || ''}${studentCount ? ` (${studentCount})` : ''}
+                </div>
+                <div class="text-sm text-gray-100">${ev.room || ''}</div>
+                <div class="text-xs text-gray-100 teachers-text">${ev.teachers || ''}</div>
+            `;
+        }
+
         wrap.appendChild(iconWrap);
         wrap.appendChild(details);
         lesson.appendChild(wrap);
 
-        cell.appendChild(lesson);
+        if(ev.isFree){
+            cell.prepend(lesson);
+        } else {
+            cell.appendChild(lesson);
+        }
     }
 
     function getCurrentEvents(){

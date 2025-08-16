@@ -85,7 +85,7 @@ class GridController extends Controller
                 'date' => $lesson->date,
                 'period' => $lesson->period,
                 'reason' => $lesson->reason,
-                'room' => $lesson->room->code.' ('.$lesson->room->capacity.')',
+                'room' => $lesson->room->code,
                 'teachers' => $lesson->teachers
                     ->map(fn($teacher) => $teacher->user->name)
                     ->join(', '),
@@ -97,9 +97,38 @@ class GridController extends Controller
             ];
         });
 
+        $students   = User::role('student')->get(['id', 'name']);
+        $periodKeys = array_keys(Config::get('periods'));
+
+        $weekLessons = Lesson::with('users')
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get();
+
+        $busy = [];
+        foreach ($weekLessons as $lesson) {
+            foreach ($lesson->users as $user) {
+                $busy[$lesson->date][$lesson->period][] = $user->id;
+            }
+        }
+
+        $free = [];
+        for ($i = 0; $i < 5; $i++) {
+            $date = $startDate->copy()->addDays($i)->toDateString();
+            foreach ($periodKeys as $p) {
+                $busyIds = $busy[$date][$p] ?? [];
+                $free[$date][$p] = $students
+                    ->filter(fn($s) => !in_array($s->id, $busyIds))
+                    ->map(fn($s) => [
+                        'id' => $s->id,
+                        'name' => $s->name,
+                    ])->values()->all();
+            }
+        }
+
         return response()->json([
             'events' => $events,
             'subjects' => $subjects,
+            'free' => $free,
         ]);
     }
 
