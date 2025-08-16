@@ -358,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch(`/schedule/index/optimizeTeachers/start/${monday}`)
             .then(res => res.json())
             .then(data => {
+                if (data.error) throw new Error(data.error);
                 jobId = data.jobId;
                 if (!jobId) throw new Error('No job id');
                 const poll = setInterval(() => {
@@ -392,16 +393,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 spinner.classList.add('hidden');
                             }
                         })
-                        .catch(() => {
+                        .catch(err => {
                             clearInterval(poll);
                             spinner.classList.add('hidden');
-                            alert('Optimization failed');
+                            alert(err.message || 'Optimization failed');
                         });
                 }, 10000);
             })
-            .catch(() => {
+            .catch(err => {
                 spinner.classList.add('hidden');
-                alert('Optimization failed');
+                alert(err.message || 'Optimization failed');
             });
     });
 
