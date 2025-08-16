@@ -6,7 +6,7 @@
         <a href="{{ url('/schedule/students/index/start/' . $prevWeek) }}" class="px-2 py-1 bg-gray-200 rounded">Prev</a>
         <span class="font-semibold">{{ $startDate->toDateString() }}</span>
         <a href="{{ url('/schedule/students/index/start/' . $nextWeek) }}" class="px-2 py-1 bg-gray-200 rounded">Next</a>
-        <button id="assign" class="px-2 py-1 bg-blue-500 text-white rounded">Assign</button>
+        <button id="assign" class="grid-head-button">Assign</button>
     </div>
     <table class="min-w-full border text-sm">
         <thead>
