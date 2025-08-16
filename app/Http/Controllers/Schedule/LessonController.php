@@ -56,40 +56,66 @@ class LessonController extends Controller
     public function createFromSubjectPeriodStudent($subject_id, $date, $period, $user_id)
     {
         $subject = Subject::with('teachers.user')->findOrFail($subject_id);
-        $room = Room::where('code', 'BIBL')->firstOrFail();
-        $slot = config("periods.$period");
-        $start_time = $slot['start'];
-        $end_time   = $slot['end'];
+        $slot    = config("periods.$period");
+        $user    = User::findOrFail($user_id);
 
-        $lesson = Lesson::create([
-            'subject_id' => $subject_id,
-            'room_id' => $room->id,
-            'date' => $date,
-            'period' => $period,
-            'start_time' => $start_time,
-            'end_time' => $end_time,
-        ]);
+        // If the subject is IND, always create a brand new lesson
+        if ($subject->code === 'IND') {
+            $room       = Room::where('code', 'BIBL')->firstOrFail();
+            $start_time = $slot['start'];
+            $end_time   = $slot['end'];
 
-        $teacherIds = $subject->teachers->pluck('id')->unique()->values()->all();
-        $lesson->teachers()->syncWithoutDetaching($teacherIds);
+            $lesson = Lesson::create([
+                'subject_id' => $subject_id,
+                'room_id'    => $room->id,
+                'date'       => $date,
+                'period'     => $period,
+                'start_time' => $start_time,
+                'end_time'   => $end_time,
+            ]);
+
+            $teacherIds = $subject->teachers->pluck('id')->unique()->values()->all();
+            $lesson->teachers()->syncWithoutDetaching($teacherIds);
+            $lesson->users()->syncWithoutDetaching([$user_id]);
+
+            return response()->json([
+                'id'     => $lesson->id,
+                'title'  => $lesson->subject->code,
+                'color'  => $lesson->subject->color,
+                'room'   => $room->code,
+                'teachers' => $subject->teachers
+                    ->map(fn($teacher) => $teacher->user->name)
+                    ->join(', '),
+                'date'   => $lesson->date,
+                'period' => $lesson->period,
+                'reason' => $lesson->reason,
+            ]);
+        }
+
+        // For non-IND subjects, attach the student to an existing lesson
+        $lesson = Lesson::with(['subject', 'room', 'teachers.user'])
+            ->where('subject_id', $subject_id)
+            ->where('date', $date)
+            ->where('period', $period)
+            ->first();
+
+        if (!$lesson) {
+            return response()->json(['message' => 'Lesson not found'], 404);
+        }
+
         $lesson->users()->syncWithoutDetaching([$user_id]);
 
-        $user = User::findOrFail($user_id);
-
         return response()->json([
-            'id' => $lesson->id,
-            'title' => $lesson->subject->code,
-            'color' => $lesson->subject->color,
-            'room' => $room->code,
-            'teachers' => $subject->teachers
+            'id'     => $lesson->id,
+            'title'  => $lesson->subject->code,
+            'color'  => $lesson->subject->color,
+            'room'   => $lesson->room->code,
+            'teachers' => $lesson->teachers
                 ->map(fn($teacher) => $teacher->user->name)
                 ->join(', '),
-            'students' => [[
-                'id' => $user->id,
-                'name' => $user->name,
-            ]],
-            'date' => $lesson->date,
+            'date'   => $lesson->date,
             'period' => $lesson->period,
+            'reason' => $lesson->reason,
         ]);
     }
 
@@ -176,10 +202,21 @@ class LessonController extends Controller
         ]);
     }
 
-    public function delete($lesson_id)
+    public function delete(int $lesson_id, ?int $user_id = null)
     {
         $lesson = Lesson::findOrFail($lesson_id);
-        $lesson->delete();
+
+        // If a user id is provided, detach the student first
+        if ($user_id !== null) {
+            $lesson->users()->detach($user_id);
+
+            // remove the lesson entirely when no students remain
+            if ($lesson->users()->count() === 0) {
+                $lesson->delete();
+            }
+        } else {
+            $lesson->delete();
+        }
 
         return response()->json(['success' => true]);
     }

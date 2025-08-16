@@ -175,7 +175,6 @@ class GridController extends Controller
             ->get();
 
         $subjects = $user->subjects
-            ->filter(fn($s) => $s->code === 'IND')
             ->map(function ($subject) use ($user, $startDate, $endDate) {
                 $lessonsCount = $user->lessons()
                     ->where('subject_id', $subject->id)

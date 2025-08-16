@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lesson.draggable=true;
         lesson.style.backgroundColor=ev.color || '#64748b';
         lesson.dataset.id=ev.id;
+        lesson.dataset.subjectCode = ev.title || '';
 
         const delBtn = document.createElement('button');
         delBtn.className = 'delete-btn absolute top-0 right-0 text-xl text-white hover:text-red-300';
@@ -256,8 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
     table.addEventListener('click', e=>{
         if(e.target.classList.contains('delete-btn')){
             const id = e.target.dataset.id;
+            const lessonEl = e.target.closest('.lesson');
+            const code = lessonEl ? lessonEl.dataset.subjectCode : null;
             if(!confirm('Delete this lesson?')) return;
-            fetch(`/schedule/lesson/delete/lesson_id/${id}`).then(()=> loadWeek());
+            const url = code === 'IND'
+                ? `/schedule/lesson/delete/lesson_id/${id}`
+                : `/schedule/lesson/delete/lesson_id/${id}/user_id/${userId}`;
+            fetch(url).then(()=> loadWeek());
         }
     });
     function decreaseSubjectQuantity(id){
