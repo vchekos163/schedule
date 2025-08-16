@@ -259,7 +259,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = e.target.dataset.id;
             const lessonEl = e.target.closest('.lesson');
             const code = lessonEl ? lessonEl.dataset.subjectCode : null;
-            if(!confirm('Delete this lesson?')) return;
+            const confirmMessage = code === 'IND'
+                ? 'Delete this lesson?'
+                : 'Unassign this lesson?';
+            if(!confirm(confirmMessage)) return;
             const url = code === 'IND'
                 ? `/schedule/lesson/delete/lesson_id/${id}`
                 : `/schedule/lesson/delete/lesson_id/${id}/user_id/${userId}`;
