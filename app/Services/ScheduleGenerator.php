@@ -125,6 +125,9 @@ PROMPT;
             CURLOPT_HTTPHEADER => $headers
         ]);
 
+        curl_setopt($ch, CURLOPT_TIMEOUT, 0); // no total time limit
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+
         $result = curl_exec($ch);
 
         Log::info('OptimizeTeachers: generation response', [
