@@ -111,11 +111,13 @@ class OptimizeTeachers implements ShouldQueue
         $events = collect();
 
         if (count($existingSchedule->toArray())) {
+            $prompt = Cache::get("optimize_teachers_prompt_{$this->jobId}", '');
             $scheduler = new ScheduleGenerator(
                 $lessons->toArray(),
                 $rooms->toArray(),
                 $dates,
-                $students->toArray()
+                $students->toArray(),
+                $prompt
             );
 
             try {
