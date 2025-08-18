@@ -32,6 +32,10 @@ class Table extends DataTableComponent
                 ->sortable()
                 ->searchable(),
 
+            Column::make('Class', 'class')
+                ->sortable()
+                ->searchable(),
+
             Column::make('Schedule')
                 ->label(fn($row) => view('components.schedule-link', ['link' => 'schedule/grid/student/user_id/'.$row->id]))
                 ->html(), // Ensure HTML rendering
@@ -56,14 +60,13 @@ class Table extends DataTableComponent
                         'model' => $row,
                         'actions' => [
                             [
-                                'label' => 'Assign subjects',
+                                'label' => 'Edit',
                                 'type' => 'link',
                                 'href' => "/admin/students/assignSubject/user_id/{$row->id}",
                             ],
                         ],
                     ]);
                 }),
-
         ];
     }
 }

@@ -20,7 +20,7 @@
     display: inline-flex;
 }
 
-.hidden {
+.grid-head-button.hidden {
     display: none !important;
 }
 

@@ -24,6 +24,7 @@ class AssignSubject extends Component implements HasForms
 
         // Prefill the form from existing pivot data
         $this->data = [
+            'class' => $this->user->class ?? null,
             'subjects' => $this->user->subjects->map(function ($subject) {
                 return [
                     'subject_id' => $subject->id,
@@ -38,6 +39,9 @@ class AssignSubject extends Component implements HasForms
     public function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\TextInput::make('class')
+                ->label('Class')
+                ->maxLength(255),
             Forms\Components\Repeater::make('subjects')
                 ->label('Subjects')
                 ->schema([
@@ -64,6 +68,9 @@ class AssignSubject extends Component implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
+
+        $this->user->class = $data['class'];
+        $this->user->save();
 
         $syncData = collect($data['subjects'] ?? [])
             ->filter(fn ($row) => !empty($row['subject_id']))
