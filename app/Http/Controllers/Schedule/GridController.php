@@ -97,7 +97,11 @@ class GridController extends Controller
             ];
         });
 
-        $students   = User::role('student')->get(['id', 'name']);
+        $students   = User::role('student')
+            ->orderBy('class')
+            ->orderBy('name')
+            ->get(['id', 'name', 'class']);
+
         $periodKeys = array_keys(Config::get('periods'));
 
         $weekLessons = Lesson::with('users')

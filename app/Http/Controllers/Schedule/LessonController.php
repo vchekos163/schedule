@@ -241,7 +241,7 @@ class LessonController extends Controller
         ]);
     }
 
-    public function assignStudentLessons(?int $user_id, string $start)
+    public function assignStudentLessons(string $start, int $user_id = 0)
     {
         $startDate = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);
         $endDate   = (clone $startDate)->endOfWeek(Carbon::SUNDAY);
