@@ -52,7 +52,7 @@ class OptimizeTeachers implements ShouldQueue
                 $q->where('code', '!=', 'IND');
             })
             ->with([
-                'subject:id,priority',
+                'subject:id,code,priority',
                 'subject.rooms:id',
                 'teachers:id,availability,max_lessons,max_days,max_gaps',
             ])
@@ -78,6 +78,7 @@ class OptimizeTeachers implements ShouldQueue
         $lessons = $existingSchedule->map(function ($l) {
             return [
                 'id'          => $l->id,
+                'code' => $l->subject->code,
                 'subject_id'    => $l->subject->id,
                 'priority'    => optional($l->subject)->priority,
                 'teachers'    => $l->teachers->map(function ($t) {

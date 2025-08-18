@@ -30,6 +30,20 @@
             <button id="optimize" class="grid-head-button">Optimize</button>
             <button id="save" class="grid-head-button hidden">Save</button>
             <button id="undo" class="grid-head-button hidden">Undo</button>
+
+            <div id="optimize-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-4">
+                    <h2 class="text-lg font-semibold mb-3">Enter prompt for optimization</h2>
+                    <textarea id="optimize-textarea"
+                              class="w-full border rounded p-2 text-sm"
+                              rows="6"
+                              placeholder="Write your optimization rules here..."></textarea>
+                    <div class="mt-4 flex justify-end gap-2">
+                        <button id="cancel-optimize" class="px-3 py-1 rounded bg-gray-200">Cancel</button>
+                        <button id="confirm-optimize" class="px-3 py-1 rounded bg-blue-600 text-white">Optimize</button>
+                    </div>
+                </div>
+            </div>
         </div>
         <table id="schedule-table" class="w-full table-fixed border">
             <thead>
@@ -60,6 +74,7 @@
 @endsection
 
 @push('scripts')
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const teacherId = {{ $teacher->id ?? 0 }};
@@ -72,6 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.entries(periods).forEach(([p, t]) => { timeToPeriod[t.start] = Number(p); });
     let originalEvents = null;
     let jobId = null;
+
+    function csrfToken() {
+        const el = document.querySelector('meta[name="csrf-token"]');
+        return el ? el.getAttribute('content') : '';
+    }
 
     function startOfWeek(d){
         const date = new Date(d);
@@ -392,65 +412,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('optimize').addEventListener('click', () => {
-        const promptText = prompt('Enter prompt for optimization');
-        if (promptText === null) return;
-        const monday = formatYMD(currentMonday);
-        const spinner = document.getElementById('spinner');
-        spinner.classList.remove('hidden');
-        originalEvents = getCurrentEvents();
-        fetch(`/schedule/index/optimizeTeachers`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ start: monday, prompt: promptText })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                jobId = data.jobId;
-                if (!jobId) throw new Error('No job id');
-                const poll = setInterval(() => {
-                    fetch(`/schedule/index/getOptimizedTeachers/jobId/${jobId}`)
-                        .then(r => r.json())
-                        .then(result => {
-                            if (result.status !== 'pending') {
-                                clearInterval(poll);
-                                if (result.status === 'failed') {
-                                    spinner.classList.add('hidden');
-                                    alert(result.error || 'Optimization failed');
-                                    return;
-                                }
-                                const events = (result.events || []).map(ev => {
-                                    return {
-                                        id: ev.id,
-                                        title: ev.title,
-                                        color: ev.color,
-                                        date: ev.date,
-                                        period: ev.period,
-                                        reason: ev.reason,
-                                        room: ev.room ,
-                                        teachers: ev.teachers,
-                                        students: ev.students || [],
-                                    };
-                                }).filter(e => e.period);
-                                console.log(events);
-                                clearLessons();
-                                events.forEach(addLessonToTable);
-                                document.getElementById('save').classList.remove('hidden');
-                                document.getElementById('undo').classList.remove('hidden');
-                                spinner.classList.add('hidden');
-                            }
-                        })
-                        .catch(err => {
-                            clearInterval(poll);
-                            spinner.classList.add('hidden');
-                            alert(err.message || 'Optimization failed');
-                        });
-                }, 10000);
-            })
-            .catch(err => {
-                spinner.classList.add('hidden');
-                alert(err.message || 'Optimization failed');
-            });
+        document.getElementById('optimize-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('confirm-optimize').addEventListener('click', () => {
+        const promptText = document.getElementById('optimize-textarea').value.trim();
+        if (!promptText) return;
+        document.getElementById('optimize-modal').classList.add('hidden');
+        runOptimize(promptText);
+    });
+
+    document.getElementById('cancel-optimize').addEventListener('click', () => {
+        document.getElementById('optimize-modal').classList.add('hidden');
     });
 
     document.getElementById('save').addEventListener('click', () => {
@@ -471,6 +444,71 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     loadWeek();
+
+    function runOptimize(promptText) {
+        const monday = formatYMD(currentMonday);
+        const spinner = document.getElementById('spinner');
+        spinner.classList.remove('hidden');
+        originalEvents = getCurrentEvents();
+
+        fetch(`/schedule/index/optimizeTeachers`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ start: monday, prompt: promptText })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                jobId = data.jobId;
+                if (!jobId) throw new Error('No job id');
+
+                const poll = setInterval(() => {
+                    fetch(`/schedule/index/getOptimizedTeachers/jobId/${jobId}`)
+                        .then(r => r.json())
+                        .then(result => {
+                            if (result.status !== 'pending') {
+                                clearInterval(poll);
+                                if (result.status === 'failed') {
+                                    spinner.classList.add('hidden');
+                                    alert(result.error || 'Optimization failed');
+                                    return;
+                                }
+                                const events = (result.events || []).map(ev => ({
+                                    id: ev.id,
+                                    title: ev.title,
+                                    color: ev.color,
+                                    date: ev.date,
+                                    period: ev.period,
+                                    reason: ev.reason,
+                                    room: ev.room,
+                                    teachers: ev.teachers,
+                                    students: ev.students || [],
+                                })).filter(e => e.period);
+
+                                clearLessons();
+                                events.forEach(addLessonToTable);
+                                document.getElementById('save').classList.remove('hidden');
+                                document.getElementById('undo').classList.remove('hidden');
+                                spinner.classList.add('hidden');
+                            }
+                        })
+                        .catch(err => {
+                            clearInterval(poll);
+                            spinner.classList.add('hidden');
+                            alert(err.message || 'Optimization failed');
+                        });
+                }, 10000);
+            })
+            .catch(err => {
+                spinner.classList.add('hidden');
+                alert(err.message || 'Optimization failed');
+            });
+    }
 });
 </script>
 @endpush

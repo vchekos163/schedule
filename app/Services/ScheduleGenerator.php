@@ -39,23 +39,26 @@ class ScheduleGenerator
 
     protected function buildPrompt(array $data): string
     {
+        $lessonCount = count($data['lessons']);
         $data = json_encode($data);
         $prompt = <<<PROMPT
 Given the following data:
 {$data}
 
-Rearrange ALL the lessons to:
+First, rearrange ALL {$lessonCount} lessons and assign rooms:
 - Use periods 1-7 per day
 - Respect teacher availability and max gaps
+- If max_days stated you can choose any [max_days] days of the week
+- Choose rooms that match capacity and features so they are not overfilled
+- If multiple subjects require a single room, assign it to the subject with the highest room priority
+- Lower number means a higher priority
+- Ensure that no room has two different lessons scheduled in the same date and period
+- Write very short reason why this lesson on this place
+Then:
 - Assign each student the required quantity of lessons for every subject
 - Ensure that no student has two different lessons scheduled in the same date and period
 - Include the student IDs for each lesson in a `student_ids` array
-- Choose rooms that match capacity and features so they are not overfilled
-- Write very short reason why this lesson on this place
-- If max_days stated you can choose any [max_days] days of the week
-- If a room is assigned to multiple subjects, give it to the subject with the highest room priority
-- Lower number means a higher priority
-- Ensure that no room has two different lessons scheduled in the same date and period
+
 PROMPT;
         if ($this->userPrompt) {
             $prompt .= "\n\nAdditional instructions:\n{$this->userPrompt}";
