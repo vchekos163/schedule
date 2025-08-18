@@ -92,7 +92,7 @@ class GridController extends Controller
                 'students' => $lesson->users
                     ->map(fn($user) => [
                         'id' => $user->id,
-                        'name' => $user->name,
+                        'name' => $user->name . ($user->class ? ' (' . $user->class . ')' : ''),
                     ])->values()->all(),
             ];
         });
@@ -120,7 +120,7 @@ class GridController extends Controller
                     ->filter(fn($s) => !in_array($s->id, $busyIds))
                     ->map(fn($s) => [
                         'id' => $s->id,
-                        'name' => $s->name,
+                        'name' => $s->name . ($s->class ? ' (' . $s->class . ')' : ''),
                     ])->values()->all();
             }
         }

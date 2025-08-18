@@ -4,7 +4,8 @@
 <div class="container mx-auto p-4 flex gap-4 max-w-full">
     <div class="w-1/8">
         <h1 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            Student schedule: {{ $user->name }}
+            Student schedule:<br>
+            {{ $user->name }}{{ $user->class ? ' (' . $user->class . ')' : '' }}
             <span id="spinner" class="hidden">
                 <svg class="animate-spin h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

@@ -28,7 +28,7 @@
             @foreach($students as $student)
                 <tr>
                     <td class="border px-2 py-1 {{ isset($studentsWithConflict[$student->id]) ? 'text-red-500' : '' }}">
-                        {{ $student->name }}
+                        {{ $student->name . ($student->class ? ' (' . $student->class . ')' : '')}}
                     </td>
                     @foreach($days as $dayNumber => $dayLabel)
                         @for($period = 1; $period <= count($periods); $period++)
