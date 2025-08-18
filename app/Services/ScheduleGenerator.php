@@ -10,13 +10,15 @@ class ScheduleGenerator
     protected array $students;
     protected array $rooms;
     protected array $currentSchedule;
+    protected string $userPrompt;
 
-    public function __construct(array $currentSchedule = [], array $rooms = [], string $dates = '', array $students = [])
+    public function __construct(array $currentSchedule = [], array $rooms = [], string $dates = '', array $students = [], string $userPrompt = '')
     {
         $this->currentSchedule = $currentSchedule;
         $this->rooms = $rooms;
         $this->dates = $dates;
         $this->students = $students;
+        $this->userPrompt = $userPrompt;
     }
 
     public function generate(): array
@@ -38,7 +40,7 @@ class ScheduleGenerator
     protected function buildPrompt(array $data): string
     {
         $data = json_encode($data);
-        return <<<PROMPT
+        $prompt = <<<PROMPT
 Given the following data:
 {$data}
 
@@ -55,6 +57,11 @@ Rearrange ALL the lessons to:
 - Lower number means a higher priority
 - Ensure that no room has two different lessons scheduled in the same date and period
 PROMPT;
+        if ($this->userPrompt) {
+            $prompt .= "\n\nAdditional instructions:\n{$this->userPrompt}";
+        }
+
+        return $prompt;
     }
 
     protected function callOpenAi(string $prompt): string

@@ -135,9 +135,16 @@ class IndexController extends Controller
         ]);
     }
 
-    public function optimizeTeachers(string $start)
+    public function optimizeTeachers(Request $request, string $start = null)
     {
+        $start = $request->input('start', $start);
+        $prompt = $request->input('prompt', '');
         $jobId = (string) Str::uuid();
+
+        if ($prompt !== '') {
+            Cache::put("optimize_teachers_prompt_{$jobId}", $prompt, now()->addHour());
+        }
+
         OptimizeTeachers::dispatch($start, $jobId);
 
         return response()->json(['jobId' => $jobId]);

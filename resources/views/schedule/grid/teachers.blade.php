@@ -392,11 +392,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('optimize').addEventListener('click', () => {
+        const promptText = prompt('Enter prompt for optimization');
+        if (promptText === null) return;
         const monday = formatYMD(currentMonday);
         const spinner = document.getElementById('spinner');
         spinner.classList.remove('hidden');
         originalEvents = getCurrentEvents();
-        fetch(`/schedule/index/optimizeTeachers/start/${monday}`)
+        fetch(`/schedule/index/optimizeTeachers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start: monday, prompt: promptText })
+        })
             .then(res => res.json())
             .then(data => {
                 if (data.error) throw new Error(data.error);

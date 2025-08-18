@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 use App\Http\Controllers\Auth\LoginController;
 
@@ -9,7 +10,8 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
-    Route::get('{module?}/{controller?}/{action?}/{params?}', function (
+    Route::match(['get', 'post'], '{module?}/{controller?}/{action?}/{params?}', function (
+        Request $request,
         $module = 'index',
         $controller = 'index',
         $action = 'index',
@@ -35,6 +37,8 @@ Route::middleware('auth')->group(function () {
                 $paramArray[$key] = $value;
             }
         }
+
+        $paramArray = array_merge($request->all(), $paramArray);
 
         return app()->call("$controllerClass@$action", $paramArray);
     })->where('params', '.*');
