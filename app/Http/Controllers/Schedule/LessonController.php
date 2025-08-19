@@ -248,7 +248,7 @@ class LessonController extends Controller
 
         $usersQuery = User::with('subjects');
 
-        if ($user_id !== null) {
+        if ($user_id) {
             $usersQuery->where('id', $user_id);
         } else {
             $usersQuery->role('student');
