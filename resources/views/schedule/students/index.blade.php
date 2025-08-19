@@ -28,7 +28,9 @@
             @foreach($students as $student)
                 <tr>
                     <td class="border px-2 py-1 {{ isset($studentsWithConflict[$student->id]) ? 'text-red-500' : '' }}">
-                        {{ $student->name . ($student->class ? ' (' . $student->class . ')' : '')}}
+                        <a href="{{ url('schedule/grid/student/' . $student->id) }}" class="text-blue-600 hover:underline">
+                            {{ $student->name . ($student->class ? ' (' . $student->class . ')' : '') }}
+                        </a>
                     </td>
                     @foreach($days as $dayNumber => $dayLabel)
                         @for($period = 1; $period <= count($periods); $period++)
