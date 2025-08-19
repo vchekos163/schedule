@@ -7,6 +7,7 @@
         <span class="font-semibold">{{ $startDate->toDateString() }}</span>
         <a href="{{ url('/schedule/students/index/start/' . $nextWeek) }}" class="px-2 py-1 bg-gray-200 rounded">Next</a>
         <button id="assign" class="grid-head-button">Assign</button>
+        <button id="unassign" class="grid-head-button">Unassign Excess</button>
     </div>
     <table class="min-w-full border text-sm">
         <thead>
@@ -57,13 +58,23 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('assign');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-        const monday = "{{ $startDate->toDateString() }}";
-        fetch(`/schedule/lesson/assignStudentLessons/start/${monday}`)
-            .then(() => window.location.reload());
-    });
+    const assignBtn = document.getElementById('assign');
+    if (assignBtn) {
+        assignBtn.addEventListener('click', () => {
+            const monday = "{{ $startDate->toDateString() }}";
+            fetch(`/schedule/lesson/assignStudentLessons/start/${monday}`)
+                .then(() => window.location.reload());
+        });
+    }
+
+    const unassignBtn = document.getElementById('unassign');
+    if (unassignBtn) {
+        unassignBtn.addEventListener('click', () => {
+            const monday = "{{ $startDate->toDateString() }}";
+            fetch(`/schedule/lesson/unassignStudentLessons/start/${monday}`)
+                .then(() => window.location.reload());
+        });
+    }
 });
 </script>
 @endpush
