@@ -28,7 +28,7 @@
             @foreach($students as $student)
                 <tr>
                     <td class="border px-2 py-1 {{ isset($studentsWithConflict[$student->id]) ? 'text-red-500' : '' }}">
-                        <a href="{{ url('schedule/grid/student/' . $student->id) }}" class="text-blue-600 hover:underline">
+                        <a href="{{ url('schedule/grid/student/user_id/' . $student->id) }}">
                             {{ $student->name . ($student->class ? ' (' . $student->class . ')' : '') }}
                         </a>
                     </td>
