@@ -41,7 +41,7 @@
                             @endphp
                             <td class="border px-1 py-1 text-center">
                                 @foreach($lessons as $lesson)
-                                    <div class="mb-0.5 text-white" style="background-color: {{ $lesson->subject->color }}">
+                                    <div class="mb-0.5 text-white text-xs leading-tight" style="background-color: {{ $lesson->subject->color }}">
                                         {{ $lesson->subject->code }}
                                     </div>
                                 @endforeach
