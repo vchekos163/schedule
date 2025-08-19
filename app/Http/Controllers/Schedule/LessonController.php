@@ -325,6 +325,50 @@ class LessonController extends Controller
         return back()->with('message', 'Lessons assigned.');
     }
 
+    public function unassignStudentLessons(string $start, int $user_id = 0)
+    {
+        $startDate = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);
+        $endDate   = (clone $startDate)->endOfWeek(Carbon::SUNDAY);
+
+        $usersQuery = User::with('subjects');
+        if ($user_id > 0) {
+            $usersQuery->where('id', $user_id);
+        } else {
+            $usersQuery->role('student');
+        }
+
+        $users = $usersQuery->get();
+
+        foreach ($users as $user) {
+            $required = $user->subjects->mapWithKeys(fn($s) => [$s->id => $s->pivot->quantity ?? 0]);
+
+            $lessons = $user->lessons()
+                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->with('subject')
+                ->get()
+                ->groupBy('subject_id');
+
+            foreach ($lessons as $subjectId => $group) {
+                $needed = $required[$subjectId] ?? 0;
+
+                if ($needed <= 0) {
+                    $user->lessons()->detach($group->pluck('id'));
+                    continue;
+                }
+
+                if ($group->count() > $needed) {
+                    $sorted   = $group->sortBy(fn($l) => $l->date . '|' . $l->period);
+                    $toDetach = $sorted->slice($needed)->pluck('id');
+                    if ($toDetach->isNotEmpty()) {
+                        $user->lessons()->detach($toDetach);
+                    }
+                }
+            }
+        }
+
+        return back()->with('message', 'Excess lessons unassigned.');
+    }
+
 /*
     public function createFromSubject($subject_id, $date, $start_time)
     {
