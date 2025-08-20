@@ -56,7 +56,7 @@ First, rearrange ALL {$lessonCount} lessons and assign rooms:
 - Write very short reason why this lesson on this place
 Then:
 - Assign each student the required quantity of lessons for every subject
-- Ensure that no student has two different lessons scheduled in the same date and period
+- Ensure that no student has multiple different lessons scheduled in the same date and period
 - Include the student IDs for each lesson in a `student_ids` array
 
 PROMPT;
