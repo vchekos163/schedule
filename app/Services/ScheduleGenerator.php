@@ -6,13 +6,13 @@ use Illuminate\Support\Facades\Log;
 
 class ScheduleGenerator
 {
-    protected string $dates;
+    protected array $dates;
     protected array $students;
     protected array $rooms;
     protected array $currentSchedule;
     protected string $userPrompt;
 
-    public function __construct(array $currentSchedule = [], array $rooms = [], string $dates = '', array $students = [], string $userPrompt = '')
+    public function __construct(array $currentSchedule = [], array $rooms = [], array $dates = [], array $students = [], string $userPrompt = '')
     {
         $this->currentSchedule = $currentSchedule;
         $this->rooms = $rooms;
@@ -23,18 +23,45 @@ class ScheduleGenerator
 
     public function generate(): array
     {
+        $lessons = $this->replaceDatesWithWeekdays($this->currentSchedule);
+
         $payload = [
-            'lessons' => $this->currentSchedule,
-            'rooms'            => $this->rooms,
-            'date_range'       => $this->dates,
-            'students'         => $this->students,
+            'lessons'    => $lessons,
+            'rooms'      => $this->rooms,
+            'date_range' => array_keys($this->dates),
+            'students'   => $this->students,
         ];
 
         $prompt = $this->buildPrompt($payload);
 
         $response = $this->callOpenAi($prompt);
 
-        return json_decode($response, true) ?? [];
+        $result = json_decode($response, true) ?? [];
+
+        if (!empty($result['lessons'])) {
+            foreach ($result['lessons'] as &$lesson) {
+                $day = strtolower($lesson['date'] ?? '');
+                if (isset($this->dates[$day])) {
+                    $lesson['date'] = $this->dates[$day];
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    protected function replaceDatesWithWeekdays(array $lessons): array
+    {
+        $map = array_flip($this->dates);
+
+        foreach ($lessons as &$lesson) {
+            $date = $lesson['date'] ?? null;
+            if ($date && isset($map[$date])) {
+                $lesson['date'] = $map[$date];
+            }
+        }
+
+        return $lessons;
     }
 
     protected function buildPrompt(array $data): string
@@ -107,7 +134,7 @@ PROMPT;
                                         ],
                                         "reason"  => [ "type" => "string" ],
                                         "room_id" => [ "type" => "integer" ],
-                                        "date"    => [ "type" => "string", "format" => "date" ],
+                                        "date"    => [ "type" => "string" ],
                                         "period"  => [ "type" => "integer" ]
                                     ],
                                     "required" => ["lesson_id","student_ids","reason","room_id","date","period"],

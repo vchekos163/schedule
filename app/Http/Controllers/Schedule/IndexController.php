@@ -212,7 +212,7 @@ class IndexController extends Controller
         $scheduler = new ScheduleGenerator(
             $existingSchedule->toArray(),
             $rooms->toArray(),
-            '',
+            [],
             $students
         );
 

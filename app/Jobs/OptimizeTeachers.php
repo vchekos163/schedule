@@ -44,7 +44,11 @@ class OptimizeTeachers implements ShouldQueue
 
         $weekStart = Carbon::parse($this->start)->startOfWeek(Carbon::MONDAY);
         $weekEnd   = $weekStart->copy()->addDays(4);
-        $dates = $weekStart->format('d-m-Y') . ' - ' . $weekEnd->format('d-m-Y');
+        $dates = [];
+        for ($i = 0; $i < 5; $i++) {
+            $date = $weekStart->copy()->addDays($i);
+            $dates[strtolower($date->format('l'))] = $date->toDateString();
+        }
 
         $existingSchedule = Lesson::select('id','date','room_id','subject_id')
             ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
