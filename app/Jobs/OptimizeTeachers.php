@@ -21,6 +21,16 @@ class OptimizeTeachers implements ShouldQueue
 
     public string $start;
     public string $jobId;
+    public array $dates = [];
+    public array $dayShort = [
+        'monday'    => 'mon',
+        'tuesday'   => 'tue',
+        'wednesday' => 'wed',
+        'thursday'  => 'thu',
+        'friday'    => 'fri',
+        'saturday'  => 'sat',
+        'sunday'    => 'sun',
+    ];
 
     /**
      * Create a new job instance.
@@ -44,10 +54,10 @@ class OptimizeTeachers implements ShouldQueue
 
         $weekStart = Carbon::parse($this->start)->startOfWeek(Carbon::MONDAY);
         $weekEnd   = $weekStart->copy()->addDays(4);
-        $dates = [];
+
         for ($i = 0; $i < 5; $i++) {
             $date = $weekStart->copy()->addDays($i);
-            $dates[strtolower($date->format('l'))] = $date->toDateString();
+            $this->dates[$this->dayShort[strtolower($date->format('l'))]] = $date->toDateString();
         }
 
         $existingSchedule = Lesson::select('id','date','room_id','subject_id')
@@ -120,7 +130,7 @@ class OptimizeTeachers implements ShouldQueue
             $scheduler = new ScheduleGenerator(
                 $lessons->toArray(),
                 $rooms->toArray(),
-                $dates,
+                $this->dates,
                 $students->toArray(),
                 $prompt
             );
@@ -184,19 +194,10 @@ class OptimizeTeachers implements ShouldQueue
     private function compressAvailabilityNoGaps($availability): array
     {
         if (!is_array($availability)) return [];
-        $dayShort = [
-            'monday'    => 'mon',
-            'tuesday'   => 'tue',
-            'wednesday' => 'wed',
-            'thursday'  => 'thu',
-            'friday'    => 'fri',
-            'saturday'  => 'sat',
-            'sunday'    => 'sun',
-        ];
 
         $out = [];
         foreach ($availability as $day => $slots) {
-            $shortDay = $dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
+            $shortDay = $this->dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
 
             if (!is_array($slots)) continue;
 

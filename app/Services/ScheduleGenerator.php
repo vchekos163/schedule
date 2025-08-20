@@ -23,12 +23,11 @@ class ScheduleGenerator
 
     public function generate(): array
     {
-        $lessons = $this->replaceDatesWithWeekdays($this->currentSchedule);
 
         $payload = [
-            'lessons'    => $lessons,
+            'weekdays'   => array('mon', 'tue', 'wed', 'thu', 'fri'),
+            'lessons'    => $this->currentSchedule,
             'rooms'      => $this->rooms,
-            'date_range' => array_keys($this->dates),
             'students'   => $this->students,
         ];
 
@@ -40,7 +39,7 @@ class ScheduleGenerator
 
         if (!empty($result['lessons'])) {
             foreach ($result['lessons'] as &$lesson) {
-                $day = strtolower($lesson['date'] ?? '');
+                $day = strtolower($lesson['weekday'] ?? '');
                 if (isset($this->dates[$day])) {
                     $lesson['date'] = $this->dates[$day];
                 }
@@ -48,20 +47,6 @@ class ScheduleGenerator
         }
 
         return $result;
-    }
-
-    protected function replaceDatesWithWeekdays(array $lessons): array
-    {
-        $map = array_flip($this->dates);
-
-        foreach ($lessons as &$lesson) {
-            $date = $lesson['date'] ?? null;
-            if ($date && isset($map[$date])) {
-                $lesson['date'] = $map[$date];
-            }
-        }
-
-        return $lessons;
     }
 
     protected function buildPrompt(array $data): string
@@ -74,16 +59,17 @@ Given the following data:
 
 First, rearrange ALL {$lessonCount} lessons and assign rooms:
 - Use periods 1-7 per day
+- If a lesson subject occurs only once in the week, make that day+period slot exclusive — no other lessons in that slot.
 - Respect teacher availability and max gaps
 - If max_days stated you can choose any [max_days] days of the week
 - Choose rooms that match capacity and features so they are not overfilled
 - If multiple subjects require a single room, assign it to the subject with the highest room priority
 - Lower number means a higher priority
-- Ensure that no room has two different lessons scheduled in the same date and period
+- Ensure that no room has two different lessons scheduled in the same weekday and period
 - Write very short reason why this lesson on this place
 Then:
 - Assign each student the required quantity of lessons for every subject
-- Ensure that no student has multiple different lessons scheduled in the same date and period
+- Ensure that no student has multiple different lessons scheduled in the same weekday and period
 - Include the student IDs for each lesson in a `student_ids` array
 
 PROMPT;
@@ -134,10 +120,10 @@ PROMPT;
                                         ],
                                         "reason"  => [ "type" => "string" ],
                                         "room_id" => [ "type" => "integer" ],
-                                        "date"    => [ "type" => "string" ],
+                                        "weekday"    => [ "type" => "string" ],
                                         "period"  => [ "type" => "integer" ]
                                     ],
-                                    "required" => ["lesson_id","student_ids","reason","room_id","date","period"],
+                                    "required" => ["lesson_id","student_ids","reason","room_id","weekday","period"],
                                     "additionalProperties" => false
                                 ]
                             ]

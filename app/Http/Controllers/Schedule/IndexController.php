@@ -184,8 +184,18 @@ class IndexController extends Controller
                 $lesson->period = $lessonData['period'];
                 $lesson->save();
 
-                $studentIds = $lessonData['student_ids'] ?? [];
-                $lesson->users()->sync($studentIds);
+                $studentIds = array_unique(array_map('intval', $lessonData['student_ids'] ?? []));
+
+                if (empty($studentIds)) {
+                    $lesson->users()->sync([]);
+                } else {
+                    $validIds = User::query()
+                        ->whereIn('id', $studentIds)
+                        ->pluck('id')
+                        ->all();
+
+                    $lesson->users()->sync($validIds);
+                }
             }
         });
 
