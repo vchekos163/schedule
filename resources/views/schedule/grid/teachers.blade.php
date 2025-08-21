@@ -425,8 +425,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if(qty<=0) el.remove();
         else { el.dataset.quantity=qty; el.textContent=`${el.dataset.label} (${qty})`; }
     }
-    document.getElementById('prev-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()-7); loadWeek(); });
-    document.getElementById('next-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()+7); loadWeek(); });
+    document.getElementById('prev-week').addEventListener('click',()=>{
+        currentMonday.setDate(currentMonday.getDate()-7);
+        start = (formatYMD(currentMonday));
+        loadWeek();
+    });
+    document.getElementById('next-week').addEventListener('click',()=>{
+        currentMonday.setDate(currentMonday.getDate()+7);
+        start = (formatYMD(currentMonday));
+        loadWeek();
+    });
     document.getElementById('fill-week').addEventListener('click',()=>{
         window.location.href = `/schedule/lesson/autoFillTeacher/teacher_id/${teacherId}/start/${start}`;
     });
