@@ -10,11 +10,9 @@ class Lesson extends Model
         'subject_id',
         'room_id',
         'day',
-        'date',
         'period',
-        'start_time',
-        'end_time',
         'fixed',
+        'version_id',
     ];
 
     public function subject()

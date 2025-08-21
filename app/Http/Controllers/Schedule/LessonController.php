@@ -9,28 +9,20 @@ use App\Models\User;
 use App\Models\Subject;
 use App\Models\Room;
 use App\Models\Teacher;
-use Carbon\Carbon;
 
 class LessonController extends Controller
 {
-    public function createFromSubjectPeriod($subject_id, $date, $period)
+    public function createFromSubjectPeriod($subject_id, $day, $period, $version_id)
     {
-        // Load teachers + their users for the title
         $subject = Subject::with('teachers.user')->findOrFail($subject_id);
-
-        $room = Room::first();
-
-        $slot = config("periods.$period");
-        $start_time = $slot['start'];
-        $end_time   = $slot['end'];
+        $room    = Room::first();
 
         $lesson = Lesson::create([
             'subject_id' => $subject_id,
-            'room_id' => $room->id,
-            'date' => $date,
-            'period' => $period,
-            'start_time' => $start_time,
-            'end_time' => $end_time,
+            'room_id'    => $room->id,
+            'day'        => $day,
+            'period'     => $period,
+            'version_id' => $version_id,
         ]);
 
         // Subject->teachers are Teacher models → just pluck their IDs
@@ -49,30 +41,23 @@ class LessonController extends Controller
                 ->map(fn($teacher) => $teacher->user->name)
                 ->join(', '),
             'students' => [],
-            'date' => $lesson->date,
+            'day' => $lesson->day,
             'period' => $lesson->period,
         ]);
     }
-
-    public function createFromSubjectPeriodStudent($subject_id, $date, $period, $user_id)
+    public function createFromSubjectPeriodStudent($subject_id, $day, $period, $version_id, $user_id)
     {
         $subject = Subject::with('teachers.user')->findOrFail($subject_id);
-        $slot    = config("periods.$period");
         $user    = User::findOrFail($user_id);
 
-        // If the subject is IND, always create a brand new lesson
         if ($subject->code === 'IND') {
-            $room       = Room::where('code', 'BIBL')->firstOrFail();
-            $start_time = $slot['start'];
-            $end_time   = $slot['end'];
-
+            $room = Room::where('code', 'BIBL')->firstOrFail();
             $lesson = Lesson::create([
                 'subject_id' => $subject_id,
                 'room_id'    => $room->id,
-                'date'       => $date,
+                'day'        => $day,
                 'period'     => $period,
-                'start_time' => $start_time,
-                'end_time'   => $end_time,
+                'version_id' => $version_id,
             ]);
 
             $teacherIds = $subject->teachers->pluck('id')->unique()->values()->all();
@@ -88,17 +73,17 @@ class LessonController extends Controller
                 'teachers' => $subject->teachers
                     ->map(fn($teacher) => $teacher->user->name)
                     ->join(', '),
-                'date'   => $lesson->date,
+                'day'    => $lesson->day,
                 'period' => $lesson->period,
                 'reason' => $lesson->reason,
             ]);
         }
 
-        // For non-IND subjects, attach the student to an existing lesson
         $lesson = Lesson::with(['subject', 'room', 'teachers.user'])
             ->where('subject_id', $subject_id)
-            ->where('date', $date)
+            ->where('day', $day)
             ->where('period', $period)
+            ->where('version_id', $version_id)
             ->first();
 
         if (!$lesson) {
@@ -115,43 +100,38 @@ class LessonController extends Controller
             'teachers' => $lesson->teachers
                 ->map(fn($teacher) => $teacher->user->name)
                 ->join(', '),
-            'date'   => $lesson->date,
+            'day'   => $lesson->day,
             'period' => $lesson->period,
             'reason' => $lesson->reason,
             'fixed'  => $lesson->fixed,
         ]);
     }
 
-    public function autoFillTeacher(int $teacher_id, string $start)
+    public function autoFillTeacher(int $teacher_id, int $version_id)
     {
         $periods = config('periods');
         $room    = Room::firstOrFail();
 
-        // next Monday from the passed date
-        $weekStartDate = Carbon::parse($start)
-            ->startOfWeek(Carbon::MONDAY)
-            ->toDateString();
-
         if ($teacher_id === 0) {
-            Teacher::with('subjects')->chunkById(100, function ($teachers) use ($weekStartDate, $periods, $room) {
+            Teacher::with('subjects')->chunkById(100, function ($teachers) use ($version_id, $periods, $room) {
                 foreach ($teachers as $teacher) {
-                    $this->fillSimpleForTeacher($teacher, $weekStartDate, $periods, $room);
+                    $this->fillSimpleForTeacher($teacher, $version_id, $periods, $room);
                 }
             });
         } else {
             $teacher = Teacher::with('subjects')->findOrFail($teacher_id);
-            $this->fillSimpleForTeacher($teacher, $weekStartDate, $periods, $room);
+            $this->fillSimpleForTeacher($teacher, $version_id, $periods, $room);
         }
 
         return redirect()->back()->with('message', 'Lessons generated.');
     }
 
     /**
-     * Generate lessons based on fixed periods, Mon–Fri, no availability checks.
+     * Generate lessons based on fixed periods across days 1–5.
      */
-    private function fillSimpleForTeacher(Teacher $teacher, string $weekStartDate, array $periods, Room $room): void
+    private function fillSimpleForTeacher(Teacher $teacher, int $version_id, array $periods, Room $room): void
     {
-        $cursorDate  = $weekStartDate;
+        $day         = 1;
         $periodKeys  = array_keys($periods);
         $periodIndex = 0;
 
@@ -160,24 +140,21 @@ class LessonController extends Controller
 
             for ($i = 0; $i < $qty; $i++) {
                 if ($periodIndex >= count($periodKeys)) {
-                    $cursorDate = Carbon::parse($cursorDate)->addDay()->toDateString();
-                    while (in_array(Carbon::parse($cursorDate)->dayOfWeekIso, [6, 7])) {
-                        $cursorDate = Carbon::parse($cursorDate)->addDay()->toDateString();
-                    }
+                    $day++;
                     $periodIndex = 0;
+                    if ($day > 5) {
+                        $day = 1;
+                    }
                 }
 
-                $p        = $periodKeys[$periodIndex];
-                $slotStart = $periods[$p]['start'];
-                $slotEnd   = $periods[$p]['end'];
+                $p = $periodKeys[$periodIndex];
 
                 $lesson = Lesson::create([
                     'subject_id' => $subject->id,
                     'room_id'    => $room->id,
-                    'date'       => $cursorDate,
+                    'day'        => $day,
                     'period'     => $p,
-                    'start_time' => $slotStart,
-                    'end_time'   => $slotEnd,
+                    'version_id' => $version_id,
                 ]);
 
                 $lesson->teachers()->attach($teacher->id);
@@ -186,17 +163,14 @@ class LessonController extends Controller
         }
     }
 
-    public function update(int $lesson_id, $date, $period)
+    public function update(int $lesson_id, $day, $period, $version_id)
     {
         $lesson = Lesson::findOrFail($lesson_id);
 
-        $slot = config("periods.$period");
-
         $lesson->update([
-            'date' => $date,
-            'period' => $period,
-            'start_time' => $slot['start'],
-            'end_time' => $slot['end'],
+            'day'        => $day,
+            'period'     => $period,
+            'version_id' => $version_id,
         ]);
 
         return response()->json([
@@ -245,7 +219,7 @@ class LessonController extends Controller
             'id' => $lesson->id,
             'title' => $lesson->subject->code,
             'color' => $lesson->subject->color,
-            'date' => $lesson->date,
+            'day' => $lesson->day,
             'period' => $lesson->period,
             'reason' => $lesson->reason,
             'room' => $lesson->room->code,
@@ -256,11 +230,8 @@ class LessonController extends Controller
         ]);
     }
 
-    public function assignStudentLessons(string $start, int $user_id = 0)
+    public function assignStudentLessons(int $version_id, int $user_id = 0)
     {
-        $startDate = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);
-        $endDate   = (clone $startDate)->endOfWeek(Carbon::SUNDAY);
-
         $usersQuery = User::with('subjects');
 
         if ($user_id) {
@@ -272,19 +243,17 @@ class LessonController extends Controller
         $users = $usersQuery->get();
 
         foreach ($users as $user) {
-            // Build a set of already occupied slots: "Y-m-d|period"
             $occupied = $user->lessons()
-                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->get(['date', 'period'])
-                ->map(fn($l) => $l->date . '|' . $l->period)
+                ->where('version_id', $version_id)
+                ->get(['day', 'period'])
+                ->map(fn($l) => $l->day . '|' . $l->period)
                 ->all();
             $occupied = array_fill_keys($occupied, true);
 
             foreach ($user->subjects as $subject) {
-                // How many we still need this week for this subject
                 $already = $user->lessons()
                     ->where('subject_id', $subject->id)
-                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->where('version_id', $version_id)
                     ->count();
 
                 $needed = max(0, ($subject->pivot->quantity ?? 0) - $already);
@@ -292,13 +261,12 @@ class LessonController extends Controller
                     continue;
                 }
 
-                // Candidate lessons for this subject this week, that the student isn’t already attached to
                 $candidates = Lesson::where('subject_id', $subject->id)
-                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->where('version_id', $version_id)
                     ->whereDoesntHave('users', fn($q) => $q->where('users.id', $user->id))
-                    ->orderBy('date')
+                    ->orderBy('day')
                     ->orderBy('period')
-                    ->get(['id','date','period']);
+                    ->get(['id','day','period']);
 
                 if ($candidates->isEmpty()) {
                     continue;
@@ -306,31 +274,25 @@ class LessonController extends Controller
 
                 $toAttach = [];
 
-                // Pass 1: pick only non-conflicting slots
                 foreach ($candidates as $lesson) {
                     if ($needed <= 0) break;
-                    $key = $lesson->date . '|' . $lesson->period;
+                    $key = $lesson->day . '|' . $lesson->period;
                     if (!isset($occupied[$key])) {
                         $toAttach[] = $lesson->id;
-                        $occupied[$key] = true; // block this slot for any subject
+                        $occupied[$key] = true;
                         $needed--;
                     }
                 }
 
-                // Pass 2 (fallback): if still needed, allow conflicts
                 if ($needed > 0) {
                     foreach ($candidates as $lesson) {
                         if ($needed <= 0) break;
-                        // skip ones we already chose in pass 1
                         if (in_array($lesson->id, $toAttach, true)) continue;
-
                         $toAttach[] = $lesson->id;
-                        // (we do NOT add to $occupied to allow same slot if unavoidable)
                         $needed--;
                     }
                 }
 
-                // Attach in bulk (avoids duplicates)
                 if (!empty($toAttach)) {
                     $user->lessons()->attach($toAttach);
                 }
@@ -340,11 +302,8 @@ class LessonController extends Controller
         return back()->with('message', 'Lessons assigned.');
     }
 
-    public function unassignStudentLessons(string $start, int $user_id = 0)
+    public function unassignStudentLessons(int $version_id, int $user_id = 0)
     {
-        $startDate = Carbon::parse($start)->startOfWeek(Carbon::MONDAY);
-        $endDate   = (clone $startDate)->endOfWeek(Carbon::SUNDAY);
-
         $usersQuery = User::with('subjects');
         if ($user_id > 0) {
             $usersQuery->where('id', $user_id);
@@ -358,7 +317,7 @@ class LessonController extends Controller
             $required = $user->subjects->mapWithKeys(fn($s) => [$s->id => $s->pivot->quantity ?? 0]);
 
             $lessons = $user->lessons()
-                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->where('version_id', $version_id)
                 ->with('subject')
                 ->get()
                 ->groupBy('subject_id');
@@ -372,7 +331,7 @@ class LessonController extends Controller
                 }
 
                 if ($group->count() > $needed) {
-                    $sorted   = $group->sortBy(fn($l) => $l->date . '|' . $l->period);
+                    $sorted   = $group->sortBy(fn($l) => $l->day . '|' . $l->period);
                     $toDetach = $sorted->slice($needed)->pluck('id');
                     if ($toDetach->isNotEmpty()) {
                         $user->lessons()->detach($toDetach);
