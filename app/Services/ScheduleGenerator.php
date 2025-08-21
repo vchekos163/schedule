@@ -37,8 +37,24 @@ class ScheduleGenerator
 
         $result = json_decode($response, true) ?? [];
 
+        $fixedLessons = [];
+        foreach ($this->currentSchedule as $lesson) {
+            if (isset($lesson['id'], $lesson['weekday'], $lesson['period'])) {
+                $fixedLessons[$lesson['id']] = [
+                    'weekday' => $lesson['weekday'],
+                    'period'  => $lesson['period'],
+                ];
+            }
+        }
+
         if (!empty($result['lessons'])) {
             foreach ($result['lessons'] as &$lesson) {
+                $id = $lesson['lesson_id'] ?? null;
+                if ($id && isset($fixedLessons[$id])) {
+                    $lesson['weekday'] = $fixedLessons[$id]['weekday'];
+                    $lesson['period']  = $fixedLessons[$id]['period'];
+                }
+
                 $day = strtolower($lesson['weekday'] ?? '');
                 if (isset($this->dates[$day])) {
                     $lesson['date'] = $this->dates[$day];
@@ -59,6 +75,7 @@ Given the following data:
 
 First, rearrange ALL {$lessonCount} lessons and assign rooms:
 - Use periods 1-7 per day
+- Do not change the weekday or period for lessons that already specify them
 - If a lesson subject occurs only once in the week, make that day+period slot exclusive — no other lessons in that slot.
 - Respect teacher availability and max gaps
 - If max_days stated you can choose any [max_days] days of the week
