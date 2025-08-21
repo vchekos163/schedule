@@ -5,17 +5,15 @@ namespace App\Http\Controllers\Schedule;
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Models\Version;
 use Illuminate\Support\Facades\Config;
 
 class StudentsController extends Controller
 {
-    public function index(?string $start = null)
+    public function index(?int $version_id = null)
     {
-        $startDate = $start ? Carbon::parse($start)->startOfWeek() : Carbon::now()->startOfWeek();
-        $prevWeek  = $startDate->copy()->subWeek()->toDateString();
-        $nextWeek  = $startDate->copy()->addWeek()->toDateString();
-        $endDate   = $startDate->copy()->addDays(4);
+        $versions = Version::all();
+        $versionId = $version_id ?? ($versions->first()->id ?? null);
 
         $days = [
             1 => 'Mon',
@@ -28,7 +26,7 @@ class StudentsController extends Controller
         $periods = Config::get('periods');
 
         $lessons = Lesson::with(['subject', 'users'])
-            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->where('version_id', $versionId)
             ->get();
 
         $studentLessons       = [];
@@ -36,10 +34,10 @@ class StudentsController extends Controller
 
         foreach ($lessons as $lesson) {
             foreach ($lesson->users as $user) {
-                $studentLessons[$user->id][$lesson->date][$lesson->period][] = $lesson;
+                $studentLessons[$user->id][$lesson->day][$lesson->period][] = $lesson;
 
                 if (
-                    count($studentLessons[$user->id][$lesson->date][$lesson->period]) > 1
+                    count($studentLessons[$user->id][$lesson->day][$lesson->period]) > 1
                 ) {
                     $studentsWithConflict[$user->id] = true;
                 }
@@ -52,11 +50,10 @@ class StudentsController extends Controller
             'students'             => $students,
             'days'                 => $days,
             'periods'              => $periods,
-            'startDate'            => $startDate,
-            'prevWeek'             => $prevWeek,
-            'nextWeek'             => $nextWeek,
             'studentLessons'       => $studentLessons,
             'studentsWithConflict' => $studentsWithConflict,
+            'versions'             => $versions,
+            'versionId'            => $versionId,
         ]);
     }
 }
