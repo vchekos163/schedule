@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             cls += ' text-white';
             lesson.style.backgroundColor=ev.color || '#64748b';
-            lesson.draggable=true;
+            lesson.draggable=!ev.fixed;
             lesson.dataset.id=ev.id;
         }
         lesson.className = cls;
@@ -200,6 +200,13 @@ document.addEventListener('DOMContentLoaded', () => {
             delBtn.dataset.id = ev.id;
             delBtn.textContent = '×';
             lesson.appendChild(delBtn);
+
+            const fixedInput = document.createElement('input');
+            fixedInput.type = 'checkbox';
+            fixedInput.className = 'fixed-checkbox absolute top-0 left-0 m-0.5';
+            fixedInput.dataset.id = ev.id;
+            fixedInput.checked = !!ev.fixed;
+            lesson.appendChild(fixedInput);
         }
 
         const wrap = document.createElement('div');
@@ -304,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     reason: lesson.querySelector('.reason-tooltip')?.textContent || '',
                     room: lesson.querySelector('.text-sm')?.textContent || '',
                     teachers: lesson.querySelector('.teachers-text')?.textContent || '',
+                    fixed: lesson.querySelector('.fixed-checkbox')?.checked || false,
                     students: Array.from(lesson.querySelectorAll('.students-list div')).map(div => ({
                         id: div.dataset.id,
                         name: div.textContent,
@@ -395,6 +403,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = e.target.dataset.id;
             if(!confirm('Delete this lesson?')) return;
             fetch(`/schedule/lesson/delete/lesson_id/${id}`).then(()=> loadWeek());
+        }
+    });
+    table.addEventListener('change', e=>{
+        if(e.target.classList.contains('fixed-checkbox')){
+            const id = e.target.dataset.id;
+            const fixed = e.target.checked ? 1 : 0;
+            fetch(`/schedule/lesson/setFixed/lesson_id/${id}/fixed/${fixed}`);
         }
     });
     function decreaseSubjectQuantity(id){

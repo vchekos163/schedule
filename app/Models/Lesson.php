@@ -13,6 +13,7 @@ class Lesson extends Model
         'period',
         'start_time',
         'end_time',
+        'fixed',
     ];
 
     public function subject()

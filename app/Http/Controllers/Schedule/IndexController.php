@@ -119,6 +119,7 @@ class IndexController extends Controller
                 'end' => $lesson->date . 'T' . $lesson->end_time,
                 'date' => $lesson->date,
                 'period' => $lesson->period,
+                'fixed' => $lesson->fixed,
                 'extendedProps' => [
                     'reason' => $lesson->reason,
                     'room' => $lesson->room->code,
