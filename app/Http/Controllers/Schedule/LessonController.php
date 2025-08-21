@@ -383,42 +383,4 @@ class LessonController extends Controller
 
         return back()->with('message', 'Excess lessons unassigned.');
     }
-
-/*
-    public function createFromSubject($subject_id, $date, $start_time)
-    {
-        // Load teachers + their users for the title
-        $subject = Subject::with('teachers.user')->findOrFail($subject_id);
-
-        $room = Room::first();
-
-        $end_time = Carbon::createFromFormat('H:i', $start_time)
-            ->addMinutes(45)
-            ->format('H:i');
-
-        $lesson = Lesson::create([
-            'subject_id' => $subject_id,
-            'room_id' => $room->id,
-            'date' => $date,
-            'start_time' => $start_time,
-            'end_time' => $end_time,
-        ]);
-
-        // Subject->teachers are Teacher models → just pluck their IDs
-        $teacherIds = $subject->teachers->pluck('id')->unique()->values()->all();
-
-        // Avoid duplicates if lesson already has some teachers
-        $lesson->teachers()->syncWithoutDetaching($teacherIds);
-
-        return response()->json(        [
-            'id' => $lesson->id,
-            'title' => $lesson->subject->code,
-            'color' => $lesson->subject->color,
-            'room' => $room->code,
-            'teachers' => $subject->teachers
-                ->map(fn($teacher) => $teacher->user->name)
-                ->join(', '),
-        ]);
-    }
-*/
 }
