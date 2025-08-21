@@ -35,4 +35,9 @@ class Lesson extends Model
     {
         return $this->belongsToMany(User::class, 'lesson_users', 'lesson_id', 'user_id');
     }
+
+    public function version()
+    {
+        return $this->belongsTo(Version::class);
+    }
 }
