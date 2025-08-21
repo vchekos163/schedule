@@ -22,9 +22,9 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class IndexController extends Controller
 {
-    public function optimizeTeachers(Request $request, string $start = null)
+    public function optimizeTeachers(Request $request, string $version_id = null)
     {
-        $start = $request->input('start', $start);
+        $version_id = $request->input('version_id', $version_id);
         $prompt = $request->input('prompt', '');
         $jobId = (string) Str::uuid();
 
@@ -32,7 +32,7 @@ class IndexController extends Controller
             Cache::put("optimize_teachers_prompt_{$jobId}", $prompt, now()->addHour());
         }
 
-        OptimizeTeachers::dispatch($start, $jobId);
+        OptimizeTeachers::dispatch($version_id, $jobId);
 
         return response()->json(['jobId' => $jobId]);
     }
@@ -69,6 +69,7 @@ class IndexController extends Controller
                 $lesson->room_id = $lessonData['room_id'];
                 $lesson->date = $lessonData['date'];
                 $lesson->period = $lessonData['period'];
+                $lesson->version_id = $lessonData['version_id'] ?? null;
                 $lesson->save();
 
                 $studentIds = array_unique(array_map('intval', $lessonData['student_ids'] ?? []));
@@ -89,21 +90,19 @@ class IndexController extends Controller
         return response()->json(['status' => 'saved']);
     }
 
-    public function teachersExport(string $start, ?int $teacher_id = null)
+    public function teachersExport(string $version_id, ?int $teacher_id = null)
     {
-        $startDate = Carbon::parse($start)->startOfWeek();
-        $endDate   = (clone $startDate)->endOfWeek();
         $periods   = Config::get('periods');
 
         if ($teacher_id) {
             $teacher = Teacher::findOrFail($teacher_id);
             $lessons = $teacher->lessons()
                 ->with(['subject', 'users'])
-                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->where('version_id', $version_id)
                 ->get();
         } else {
             $lessons = Lesson::with(['subject', 'users'])
-                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->where('version_id', $version_id)
                 ->get();
         }
 
@@ -112,12 +111,11 @@ class IndexController extends Controller
         });
 
         $spreadsheet = new Spreadsheet();
-        $dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        $dates = $byDate->keys()->sort()->values();
 
-        foreach (range(0, 4) as $idx) {
-            $date = $startDate->copy()->addDays($idx)->toDateString();
+        foreach ($dates as $idx => $date) {
             $sheet = $idx === 0 ? $spreadsheet->getActiveSheet() : $spreadsheet->createSheet($idx);
-            $sheet->setTitle($dayNames[$idx]);
+            $sheet->setTitle(Carbon::parse($date)->format('D'));
 
             $row = 1;
             foreach ($periods as $p => $time) {
@@ -176,6 +174,6 @@ class IndexController extends Controller
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
-        }, "schedule_{$start}.xlsx");
+        }, "schedule_{$version_id}.xlsx");
     }
 }

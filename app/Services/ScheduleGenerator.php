@@ -25,10 +25,10 @@ class ScheduleGenerator
     {
 
         $payload = [
-            'weekdays'   => array('mon', 'tue', 'wed', 'thu', 'fri'),
-            'lessons'    => $this->currentSchedule,
-            'rooms'      => $this->rooms,
-            'students'   => $this->students,
+            'days'      => array_keys($this->dates),
+            'lessons'   => $this->currentSchedule,
+            'rooms'     => $this->rooms,
+            'students'  => $this->students,
         ];
 
         $prompt = $this->buildPrompt($payload);
@@ -39,10 +39,10 @@ class ScheduleGenerator
 
         $fixedLessons = [];
         foreach ($this->currentSchedule as $lesson) {
-            if (isset($lesson['id'], $lesson['weekday'], $lesson['period'])) {
+            if (isset($lesson['id'], $lesson['day'], $lesson['period'])) {
                 $fixedLessons[$lesson['id']] = [
-                    'weekday' => $lesson['weekday'],
-                    'period'  => $lesson['period'],
+                    'day'    => $lesson['day'],
+                    'period' => $lesson['period'],
                 ];
             }
         }
@@ -51,14 +51,15 @@ class ScheduleGenerator
             foreach ($result['lessons'] as &$lesson) {
                 $id = $lesson['lesson_id'] ?? null;
                 if ($id && isset($fixedLessons[$id])) {
-                    $lesson['weekday'] = $fixedLessons[$id]['weekday'];
-                    $lesson['period']  = $fixedLessons[$id]['period'];
+                    $lesson['day']    = $fixedLessons[$id]['day'];
+                    $lesson['period'] = $fixedLessons[$id]['period'];
                 }
 
-                $day = strtolower($lesson['weekday'] ?? '');
-                if (isset($this->dates[$day])) {
+                $day = $lesson['day'] ?? null;
+                if ($day !== null && isset($this->dates[$day])) {
                     $lesson['date'] = $this->dates[$day];
                 }
+                unset($lesson['day']);
             }
         }
 
@@ -75,18 +76,18 @@ Given the following data:
 
 First, rearrange ALL {$lessonCount} lessons and assign rooms:
 - Use periods 1-7 per day
-- Do not change the weekday or period for lessons that already specify them
+- Do not change the day or period for lessons that already specify them
 - If a lesson subject occurs only once in the week, make that day+period slot exclusive — no other lessons in that slot.
 - Respect teacher availability and max gaps
 - If max_days stated you can choose any [max_days] days of the week
 - Choose rooms that match capacity and features so they are not overfilled
 - If multiple subjects require a single room, assign it to the subject with the highest room priority
 - Lower number means a higher priority
-- Ensure that no room has two different lessons scheduled in the same weekday and period
+- Ensure that no room has two different lessons scheduled in the same day and period
 - Write very short reason why this lesson on this place
 Then:
 - Assign each student the required quantity of lessons for every subject
-- Ensure that no student has multiple different lessons scheduled in the same weekday and period
+- Ensure that no student has multiple different lessons scheduled in the same day and period
 - Include the student IDs for each lesson in a `student_ids` array
 
 PROMPT;
@@ -137,10 +138,10 @@ PROMPT;
                                         ],
                                         "reason"  => [ "type" => "string" ],
                                         "room_id" => [ "type" => "integer" ],
-                                        "weekday"    => [ "type" => "string" ],
+                                        "day"    => [ "type" => "integer" ],
                                         "period"  => [ "type" => "integer" ]
                                     ],
-                                    "required" => ["lesson_id","student_ids","reason","room_id","weekday","period"],
+                                    "required" => ["lesson_id","student_ids","reason","room_id","day","period"],
                                     "additionalProperties" => false
                                 ]
                             ]

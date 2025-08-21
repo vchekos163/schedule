@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Lesson;
 use App\Models\Room;
 use App\Services\ScheduleGenerator;
-use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,25 +18,16 @@ class OptimizeTeachers implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public string $start;
+    public string $versionId;
     public string $jobId;
     public array $dates = [];
-    public array $dayShort = [
-        'monday'    => 'mon',
-        'tuesday'   => 'tue',
-        'wednesday' => 'wed',
-        'thursday'  => 'thu',
-        'friday'    => 'fri',
-        'saturday'  => 'sat',
-        'sunday'    => 'sun',
-    ];
 
     /**
      * Create a new job instance.
      */
-    public function __construct(string $start, string $jobId)
+    public function __construct(string $versionId, string $jobId)
     {
-        $this->start = $start;
+        $this->versionId = $versionId;
         $this->jobId = $jobId;
     }
 
@@ -52,16 +42,8 @@ class OptimizeTeachers implements ShouldQueue
             'cache_key' => "optimize_teachers_{$this->jobId}",
         ]);
 
-        $weekStart = Carbon::parse($this->start)->startOfWeek(Carbon::MONDAY);
-        $weekEnd   = $weekStart->copy()->addDays(4);
-
-        for ($i = 0; $i < 5; $i++) {
-            $date = $weekStart->copy()->addDays($i);
-            $this->dates[$this->dayShort[strtolower($date->format('l'))]] = $date->toDateString();
-        }
-
         $existingSchedule = Lesson::select('id','date','room_id','subject_id','period','fixed')
-            ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->where('version_id', $this->versionId)
             ->whereHas('subject', function ($q) {
                 $q->where('code', '!=', 'IND');
             })
@@ -71,6 +53,11 @@ class OptimizeTeachers implements ShouldQueue
                 'teachers:id,availability,max_lessons,max_days,max_gaps',
             ])
             ->get();
+
+        $uniqueDates = $existingSchedule->pluck('date')->filter()->unique()->sort()->values();
+        foreach ($uniqueDates as $index => $date) {
+            $this->dates[$index + 1] = $date;
+        }
 
         $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
 
@@ -120,7 +107,8 @@ class OptimizeTeachers implements ShouldQueue
             ];
 
             if ($l->fixed) {
-                $lesson['weekday'] = $this->dayShort[strtolower(Carbon::parse($l->date)->format('l'))] ?? null;
+                $dayNumber = array_search($l->date, $this->dates, true);
+                $lesson['day'] = $dayNumber !== false ? $dayNumber : null;
                 $lesson['period'] = $l->period;
             }
 
@@ -161,6 +149,11 @@ class OptimizeTeachers implements ShouldQueue
             }
 
             $newSchedule = $newSchedule['lessons'] ?? [];
+
+            foreach ($newSchedule as &$lessonData) {
+                $lessonData['version_id'] = $this->versionId;
+            }
+            unset($lessonData);
 
             $events = collect($newSchedule)->map(function ($lessonData) {
                 $id = $lessonData['lesson_id'] ?? null;
@@ -203,8 +196,9 @@ class OptimizeTeachers implements ShouldQueue
         if (!is_array($availability)) return [];
 
         $out = [];
-        foreach ($availability as $day => $slots) {
-            $shortDay = $this->dayShort[strtolower($day)] ?? strtolower(substr($day, 0, 3));
+        foreach ($availability as $dayNumber => $slots) {
+            $dayNumber = (int) $dayNumber;
+            if ($dayNumber < 1 || $dayNumber > 5) continue;
 
             if (!is_array($slots)) continue;
 
@@ -248,7 +242,7 @@ class OptimizeTeachers implements ShouldQueue
             }
 
             if (!empty($ranges)) {
-                $out[] = $shortDay . ':' . implode(',', $ranges);
+                $out[] = $dayNumber . ':' . implode(',', $ranges);
             }
         }
 
