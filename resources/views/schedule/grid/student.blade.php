@@ -22,9 +22,11 @@
 
     <div class="flex-1">
         <div class="flex items-center justify-center mb-2 gap-2">
-            <button id="prev-week" class="px-2 py-1 bg-gray-200 rounded">Prev</button>
-            <div id="week-label" class="font-semibold"></div>
-            <button id="next-week" class="px-2 py-1 bg-gray-200 rounded">Next</button>
+            <select id="version-select" class="border rounded px-2 py-1">
+                @foreach($versions as $v)
+                    <option value="{{ $v->id }}">{{ $v->name }}</option>
+                @endforeach
+            </select>
             <button id="assign" class="grid-head-button">Assign</button>
         </div>
         <table id="schedule-table" class="w-full table-fixed border">
@@ -62,47 +64,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('schedule-table');
     const subjectPalette = document.getElementById('subject-palette');
     const unassignedList = document.getElementById('unassigned-lessons');
-    let currentMonday = startOfWeek(new Date());
+    const versionSelect = document.getElementById('version-select');
+    let currentVersion = versionSelect.value;
     let dragType = null;
-    const periods = @json($periods);
-    const timeToPeriod = {};
-    Object.entries(periods).forEach(([p, t]) => { timeToPeriod[t.start] = Number(p); });
 
-    function startOfWeek(d){
-        const date = new Date(d);
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(date.setDate(diff));
-    }
-    function formatYMD(d){
-        const y=d.getFullYear();
-        const m=('0'+(d.getMonth()+1)).slice(-2);
-        const da=('0'+d.getDate()).slice(-2);
-        return `${y}-${m}-${da}`;
-    }
-    function loadWeek(){
+    versionSelect.addEventListener('change', () => {
+        currentVersion = versionSelect.value;
+        loadVersion();
+    });
+
+    function loadVersion(){
         const spinner = document.getElementById('spinner');
         spinner.classList.remove('hidden');
-        const start = formatYMD(currentMonday);
-        document.getElementById('week-label').textContent = start;
-        fetch(`/schedule/grid/studentData/user_id/${userId}/start/${start}`)
+        fetch(`/schedule/grid/studentData/user_id/${userId}/version_id/${currentVersion}`)
             .then(r=>r.json())
             .then(data => {
                 renderSubjects(data.subjects || []);
                 renderUnassigned(data.unassigned || []);
                 clearLessons();
                 (data.events || []).forEach(addLessonToTable);
-                for (let day=1; day<=5; day++) {
-                    const header = document.querySelector(`[data-day-header="${day}"]`);
-                    if (header) {
-                        const date = new Date(currentMonday);
-                        date.setDate(date.getDate() + (day - 1));
-                        const options = { month: 'short', day: 'numeric' };
-                        const dateStr = date.toLocaleDateString(undefined, options);
-                        const weekday = header.textContent.split(' ')[0];
-                        header.textContent = `${weekday} ${dateStr}`;
-                    }
-                }
             })
             .finally(()=> spinner.classList.add('hidden'));
     }
@@ -123,22 +103,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function renderUnassigned(lessons){
         unassignedList.innerHTML='';
+        const dayNames=['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
         lessons.forEach(l=>{
             const div=document.createElement('div');
             div.className='unassigned-item cursor-pointer text-white px-2 py-1 rounded mb-2';
             div.dataset.lessonId=l.id;
             div.dataset.subjectId=l.subject_id;
             div.style.backgroundColor=l.color || '#64748b';
-            const date=new Date(l.date);
-            const options={weekday:'short', month:'short', day:'numeric'};
-            const dateStr=date.toLocaleDateString(undefined, options);
-            div.textContent=`${l.title} ${dateStr} P${l.period}`;
+            const dayStr=dayNames[l.day] || '';
+            div.textContent=`${l.title} ${dayStr} P${l.period}`;
             unassignedList.appendChild(div);
         });
     }
     function addLessonToTable(ev){
-        const date = new Date(ev.date);
-        const day = date.getDay();
+        const day = parseInt(ev.day,10);
         const period = ev.period;
         if(!period) return;
         const cell = table.querySelector(`td[data-day="${day}"][data-period="${period}"]`);
@@ -217,19 +195,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!cell) return;
         const day = parseInt(cell.dataset.day,10);
         const period = cell.dataset.period;
-        const date = new Date(currentMonday);
-        date.setDate(date.getDate()+day-1);
-        const ymd = formatYMD(date);
         if(dragType==='subject'){
             const subjectId = e.dataTransfer.getData('subjectId');
-            fetch(`/schedule/lesson/createFromSubjectPeriodStudent/subject_id/${subjectId}/date/${ymd}/period/${period}/user_id/${userId}`)
+            fetch(`/schedule/lesson/createFromSubjectPeriodStudent/subject_id/${subjectId}/day/${day}/period/${period}/version_id/${currentVersion}/user_id/${userId}`)
                 .then(r=>r.json())
                 .then(data=>{
                     addLessonToTable({
                         id:data.id,
                         title:data.title,
                         color:data.color,
-                        date:ymd,
+                        day:day,
                         period:period,
                         reason:data.reason,
                         room:data.room,
@@ -245,12 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const subjectCode = lessonEl.dataset.subjectCode;
             const subjectId = lessonEl.dataset.subjectId;
             const fromCell   = lessonEl.closest('td[data-day][data-period]');
-            const date = new Date(currentMonday);
-            date.setDate(date.getDate() + (day - 1));
-            const ymd = formatYMD(date);
             if(subjectCode === 'IND'){
                 cell.appendChild(lessonEl);
-                fetch(`/schedule/lesson/update/lesson_id/${lessonId}/date/${ymd}/period/${period}`)
+                fetch(`/schedule/lesson/update/lesson_id/${lessonId}/day/${day}/period/${period}/version_id/${currentVersion}`)
                     .then(res => { if (!res.ok) throw new Error('Update failed'); })
                     .catch(err => {
                         console.error(err);
@@ -261,18 +233,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch(`/schedule/lesson/delete/lesson_id/${lessonId}/user_id/${userId}`)
                     .then(res => {
                         if (!res.ok) throw new Error('Delete failed');
-                        return fetch(`/schedule/lesson/createFromSubjectPeriodStudent/subject_id/${subjectId}/date/${ymd}/period/${period}/user_id/${userId}`);
+                        return fetch(`/schedule/lesson/createFromSubjectPeriodStudent/subject_id/${subjectId}/day/${day}/period/${period}/version_id/${currentVersion}/user_id/${userId}`);
                     })
                     .then(r => r.json())
                     .then(data => {
-                        data.date = ymd;
+                        data.day = day;
                         data.period = period;
                         data.subject_id = subjectId;
                         addLessonToTable(data);
                     })
                     .catch(err => {
                         console.error(err);
-                        loadWeek();
+                        loadVersion();
                     });
             }
         }
@@ -289,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = code === 'IND'
                 ? `/schedule/lesson/delete/lesson_id/${id}`
                 : `/schedule/lesson/delete/lesson_id/${id}/user_id/${userId}`;
-            fetch(url).then(()=> loadWeek());
+            fetch(url).then(()=> loadVersion());
         }
     });
     function decreaseSubjectQuantity(id){
@@ -299,13 +271,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if(qty<=0) el.remove();
         else { el.dataset.quantity=qty; el.textContent=`${el.dataset.label} (${qty})`; }
     }
-    document.getElementById('prev-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()-7); loadWeek(); });
-    document.getElementById('next-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()+7); loadWeek(); });
     document.getElementById('assign').addEventListener('click',()=>{
-        const monday = formatYMD(currentMonday);
-        window.location.href = `/schedule/lesson/assignStudentLessons/user_id/${userId}/start/${monday}`;
+        window.location.href = `/schedule/lesson/assignStudentLessons/user_id/${userId}/version_id/${currentVersion}`;
     });
-    loadWeek();
+    loadVersion();
 });
 </script>
 @endpush

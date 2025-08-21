@@ -20,18 +20,20 @@
     {{-- Right: Grid --}}
     <div class="flex-1">
         <div class="flex items-center justify-center mb-2 gap-2">
-            <button id="prev-week" class="px-2 py-1 bg-gray-200 rounded">Prev</button>
-            <div id="week-label" class="font-semibold"></div>
-            <button id="next-week" class="px-2 py-1 bg-gray-200 rounded">Next</button>
+            <select id="version-select" class="border rounded px-2 py-1">
+                @foreach($versions as $v)
+                    <option value="{{ $v->id }}">{{ $v->name }}</option>
+                @endforeach
+            </select>
             <button id="fill-week"
                     class="grid-head-button">
-                Fill week
+                Fill version
             </button>
             <button id="optimize" class="grid-head-button">Optimize</button>
             <button id="save" class="grid-head-button hidden">Save</button>
             <button id="undo" class="grid-head-button hidden">Undo</button>
             <button id="export" class="grid-head-button">Export</button>
-
+            
             <div id="optimize-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-4">
                     <h2 class="text-lg font-semibold mb-3">Enter prompt for optimization</h2>
@@ -81,8 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const teacherId = {{ $teacher->id ?? 0 }};
     const table = document.getElementById('schedule-table');
     const subjectPalette = document.getElementById('subject-palette');
-    let currentMonday = startOfWeek(new Date());
-    let start = formatYMD(currentMonday);
+    const versionSelect = document.getElementById('version-select');
+    let currentVersion = versionSelect.value;
     let dragType = null;
     const periods = @json($periods);
     const timeToPeriod = {};
@@ -95,37 +97,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return el ? el.getAttribute('content') : '';
     }
 
-    function startOfWeek(d){
-        const date = new Date(d);
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(date.setDate(diff));
-    }
-    function formatYMD(d){
-        const y=d.getFullYear();
-        const m=('0'+(d.getMonth()+1)).slice(-2);
-        const da=('0'+d.getDate()).slice(-2);
-        return `${y}-${m}-${da}`;
-    }
-    function loadWeek(){
+    versionSelect.addEventListener('change', () => {
+        currentVersion = versionSelect.value;
+        loadVersion();
+    });
+
+    function loadVersion(){
         const spinner = document.getElementById('spinner');
-        spinner.classList.remove('hidden'); // show spinner
+        spinner.classList.remove('hidden');
         originalEvents = null;
         document.getElementById('save').classList.add('hidden');
         document.getElementById('undo').classList.add('hidden');
 
-        document.getElementById('week-label').textContent = start;
-
-        fetch(`/schedule/grid/teachersData/teacher_id/${teacherId}/start/${start}`)
+        fetch(`/schedule/grid/teachersData/teacher_id/${teacherId}/version_id/${currentVersion}`)
             .then(r => r.json())
             .then(data => {
                 renderSubjects(data.subjects || []);
                 clearLessons();
                 if (data.free) {
-                    Object.entries(data.free).forEach(([date, periods]) => {
+                    Object.entries(data.free).forEach(([day, periods]) => {
                         Object.entries(periods).forEach(([period, students]) => {
                             addLessonToTable({
-                                date: date,
+                                day: day,
                                 period: period,
                                 title: 'FREE',
                                 color: '#d1d5db',
@@ -136,24 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
                 (data.events || []).forEach(addLessonToTable);
-                // Update weekday headers with date
-                for (let day = 1; day <= 5; day++) {
-                    const header = document.querySelector(`[data-day-header="${day}"]`);
-                    if (header) {
-                        const date = new Date(currentMonday);
-                        date.setDate(date.getDate() + (day - 1));
-                        const options = { month: 'short', day: 'numeric' };
-                        const dateStr = date.toLocaleDateString(undefined, options);
-                        const weekday = header.textContent.split(' ')[0]; // original name
-                        header.textContent = `${weekday} ${dateStr}`;
-                    }
-                }
             })
             .catch(err => {
-                console.error('Error loading week:', err);
+                console.error('Error loading version:', err);
             })
             .finally(() => {
-                spinner.classList.add('hidden'); // hide spinner
+                spinner.classList.add('hidden');
             });
     }
 
@@ -175,8 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function addLessonToTable(ev){
-        const date = new Date(ev.date);
-        const day = date.getDay();
+        const day = parseInt(ev.day,10);
         const period = ev.period;
         if(!period) return;
         const cell = table.querySelector(`td[data-day="${day}"][data-period="${period}"]`);
@@ -304,15 +284,12 @@ document.addEventListener('DOMContentLoaded', () => {
         table.querySelectorAll('td[data-day][data-period]').forEach(cell => {
             const day = parseInt(cell.dataset.day,10);
             const period = cell.dataset.period;
-            const date = new Date(currentMonday);
-            date.setDate(date.getDate() + (day - 1));
-            const ymd = formatYMD(date);
             cell.querySelectorAll('.lesson').forEach(lesson => {
                 events.push({
                     id: lesson.dataset.id,
                     title: lesson.querySelector('.font-semibold')?.textContent || '',
                     color: lesson.style.backgroundColor || '#64748b',
-                    date: ymd,
+                    day: day,
                     period: period,
                     reason: lesson.querySelector('.reason-tooltip')?.textContent || '',
                     room: lesson.querySelector('.text-sm')?.textContent || '',
@@ -341,74 +318,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     table.addEventListener('dragover', e=>{ e.preventDefault(); });
-      table.addEventListener('drop', e=>{
-          const cell = e.target.closest('td[data-day]');
-          if(!cell) return;
-          const day = parseInt(cell.dataset.day,10);
-          const period = cell.dataset.period;
-          const date = new Date(currentMonday);
-          date.setDate(date.getDate()+day-1);
-          const ymd = formatYMD(date);
-          if(dragType==='subject'){
-              const subjectId = e.dataTransfer.getData('subjectId');
-              fetch(`/schedule/lesson/createFromSubjectPeriod/subject_id/${subjectId}/date/${ymd}/period/${period}`)
-                  .then(r=>r.json())
-                  .then(data=>{
-                      addLessonToTable({
-                          id:data.id,
-                          title:data.title,
-                          color:data.color,
-                          date:ymd,
-                          period:period,
-                          reason:data.reason,
-                          room:data.room,
-                          teachers:data.teachers,
-                          students:data.students || []
-                      });
-                      decreaseSubjectQuantity(subjectId);
-                  });
-          } else if (dragType === 'lesson') {
-        const lessonId = e.dataTransfer.getData('lessonId');
-        const lessonEl = document.querySelector(`.lesson[data-id="${lessonId}"]`);
-        if (!lessonEl) return;
+    table.addEventListener('drop', e=>{
+        const cell = e.target.closest('td[data-day]');
+        if(!cell) return;
+        const day = parseInt(cell.dataset.day,10);
+        const period = cell.dataset.period;
+        if(dragType==='subject'){
+            const subjectId = e.dataTransfer.getData('subjectId');
+            fetch(`/schedule/lesson/createFromSubjectPeriod/subject_id/${subjectId}/day/${day}/period/${period}/version_id/${currentVersion}`)
+                .then(r=>r.json())
+                .then(data=>{
+                    addLessonToTable({
+                        id:data.id,
+                        title:data.title,
+                        color:data.color,
+                        day:day,
+                        period:period,
+                        reason:data.reason,
+                        room:data.room,
+                        teachers:data.teachers,
+                        students:data.students || []
+                    });
+                    decreaseSubjectQuantity(subjectId);
+                });
+        } else if (dragType === 'lesson') {
+            const lessonId = e.dataTransfer.getData('lessonId');
+            const lessonEl = document.querySelector(`.lesson[data-id="${lessonId}"]`);
+            if (!lessonEl) return;
 
-        // Remember origin (for revert on failure)
-        const fromCell   = lessonEl.closest('td[data-day][data-period]');
-        const fromDay    = fromCell ? fromCell.dataset.day : null;
-        const fromPeriod = fromCell ? fromCell.dataset.period : null;
+            const fromCell = lessonEl.closest('td[data-day][data-period]');
+            cell.appendChild(lessonEl);
 
-        // Optimistically move lesson in the UI
-        cell.appendChild(lessonEl);
+            fetch(`/schedule/lesson/update/lesson_id/${lessonId}/day/${day}/period/${period}/version_id/${currentVersion}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Update failed');
+                })
+                .catch(err => {
+                    console.error(err);
+                    if (fromCell) fromCell.appendChild(lessonEl);
+                });
+        }
+    });
 
-        // Compute YYYY-MM-DD for target cell
-        const date = new Date(currentMonday);
-        date.setDate(date.getDate() + (day - 1));
-        const ymd = formatYMD(date);
-
-        // Fire update request (no full reload)
-        fetch(`/schedule/lesson/update/lesson_id/${lessonId}/date/${ymd}/period/${period}`)
-            .then(res => {
-                if (!res.ok) throw new Error('Update failed');
-                // Optionally update any local data attributes if you use them later
-                lessonEl.dataset.date = ymd;
-                lessonEl.dataset.period = period;
-                lessonEl.dataset.day = String(day);
-            })
-            .catch(err => {
-                console.error(err);
-                // Revert UI on failure
-                if (fromCell) fromCell.appendChild(lessonEl);
-                // Optional: toast/alert
-                // alert('Could not move lesson. Please try again.');
-            });
-    }
-
-});
     table.addEventListener('click', e=>{
         if(e.target.classList.contains('delete-btn')){
             const id = e.target.dataset.id;
             if(!confirm('Delete this lesson?')) return;
-            fetch(`/schedule/lesson/delete/lesson_id/${id}`).then(()=> loadWeek());
+            fetch(`/schedule/lesson/delete/lesson_id/${id}`).then(()=> loadVersion());
         }
     });
     table.addEventListener('change', e=>{
@@ -425,18 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if(qty<=0) el.remove();
         else { el.dataset.quantity=qty; el.textContent=`${el.dataset.label} (${qty})`; }
     }
-    document.getElementById('prev-week').addEventListener('click',()=>{
-        currentMonday.setDate(currentMonday.getDate()-7);
-        start = (formatYMD(currentMonday));
-        loadWeek();
-    });
-    document.getElementById('next-week').addEventListener('click',()=>{
-        currentMonday.setDate(currentMonday.getDate()+7);
-        start = (formatYMD(currentMonday));
-        loadWeek();
-    });
     document.getElementById('fill-week').addEventListener('click',()=>{
-        window.location.href = `/schedule/lesson/autoFillTeacher/teacher_id/${teacherId}/start/${start}`;
+        window.location.href = `/schedule/lesson/autoFillTeacher/teacher_id/${teacherId}/version_id/${currentVersion}`;
     });
 
     document.getElementById('optimize').addEventListener('click', () => {
@@ -472,10 +418,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('export').addEventListener('click', () => {
-        window.location.href = `/schedule/index/teachersExport/start/${start}/teacher_id/${teacherId}`;
+        window.location.href = `/schedule/index/teachersExport/version_id/${currentVersion}/teacher_id/${teacherId}`;
     });
 
-    loadWeek();
+    loadVersion();
 
     function runOptimize(promptText) {
         const spinner = document.getElementById('spinner');
@@ -490,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'X-CSRF-TOKEN': csrfToken(),
                 'X-Requested-With': 'XMLHttpRequest',
             },
-            body: JSON.stringify({ start: start, prompt: promptText })
+            body: JSON.stringify({ version_id: currentVersion, prompt: promptText })
         })
             .then(res => res.json())
             .then(data => {
@@ -513,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     id: ev.id,
                                     title: ev.title,
                                     color: ev.color,
-                                    date: ev.date,
+                                    day: ev.day,
                                     period: ev.period,
                                     reason: ev.reason,
                                     room: ev.room,

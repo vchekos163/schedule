@@ -12,9 +12,11 @@
         </span>
     </h1>
     <div class="flex items-center justify-center mb-2 gap-2">
-        <button id="prev-week" class="px-2 py-1 bg-gray-200 rounded">Prev</button>
-        <div id="week-label" class="font-semibold"></div>
-        <button id="next-week" class="px-2 py-1 bg-gray-200 rounded">Next</button>
+        <select id="version-select" class="border rounded px-2 py-1">
+            @foreach($versions as $v)
+                <option value="{{ $v->id }}">{{ $v->name }}</option>
+            @endforeach
+        </select>
     </div>
     <table id="schedule-table" class="w-full table-fixed border">
         <thead>
@@ -48,50 +50,30 @@
 document.addEventListener('DOMContentLoaded', () => {
     const roomId = {{ $room->id ?? 0 }};
     const table = document.getElementById('schedule-table');
-    let currentMonday = startOfWeek(new Date());
+    const versionSelect = document.getElementById('version-select');
+    let currentVersion = versionSelect.value;
 
-    function startOfWeek(d){
-        const date = new Date(d);
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(date.setDate(diff));
-    }
-    function formatYMD(d){
-        const y=d.getFullYear();
-        const m=('0'+(d.getMonth()+1)).slice(-2);
-        const da=('0'+d.getDate()).slice(-2);
-        return `${y}-${m}-${da}`;
-    }
-    function loadWeek(){
+    versionSelect.addEventListener('change', () => {
+        currentVersion = versionSelect.value;
+        loadVersion();
+    });
+
+    function loadVersion(){
         const spinner = document.getElementById('spinner');
-        spinner.classList.remove('hidden'); // show spinner
-        const start = formatYMD(currentMonday);
-        document.getElementById('week-label').textContent = start;
-        fetch(`/schedule/grid/roomsData/room_id/${roomId}/start/${start}`)
+        spinner.classList.remove('hidden');
+        fetch(`/schedule/grid/roomsData/room_id/${roomId}/version_id/${currentVersion}`)
             .then(r=>r.json())
             .then(data => {
                 clearLessons();
                 (data.events || []).forEach(addLessonToTable);
-                for (let day=1; day<=5; day++) {
-                    const header = document.querySelector(`[data-day-header="${day}"]`);
-                    if (header) {
-                        const date = new Date(currentMonday);
-                        date.setDate(date.getDate() + (day - 1));
-                        const options = { month: 'short', day: 'numeric' };
-                        const dateStr = date.toLocaleDateString(undefined, options);
-                        const weekday = header.textContent.split(' ')[0];
-                        header.textContent = `${weekday} ${dateStr}`;
-                    }
-                }
             })
             .finally(() => {
-                spinner.classList.add('hidden'); // hide spinner
+                spinner.classList.add('hidden');
             });
     }
     function clearLessons(){ table.querySelectorAll('td').forEach(td=>td.innerHTML=''); }
     function addLessonToTable(ev){
-        const date = new Date(ev.date);
-        const day = date.getDay();
+        const day = parseInt(ev.day,10);
         const period = ev.period;
         if(!period) return;
         const cell = table.querySelector(`td[data-day="${day}"][data-period="${period}"]`);
@@ -124,10 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cell.appendChild(lesson);
     }
 
-    document.getElementById('prev-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()-7); loadWeek(); });
-    document.getElementById('next-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()+7); loadWeek(); });
-
-    loadWeek();
+    loadVersion();
 });
 </script>
 @endpush
