@@ -9,6 +9,7 @@ class Lesson extends Model
     protected $fillable = [
         'subject_id',
         'room_id',
+        'day',
         'date',
         'period',
         'start_time',
