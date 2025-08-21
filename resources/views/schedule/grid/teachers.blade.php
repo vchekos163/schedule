@@ -195,18 +195,23 @@ document.addEventListener('DOMContentLoaded', () => {
         lesson.className = cls;
 
         if(!ev.isFree){
-            const delBtn = document.createElement('button');
-            delBtn.className = 'delete-btn absolute top-0 right-0 text-xl text-white hover:text-red-300';
-            delBtn.dataset.id = ev.id;
-            delBtn.textContent = '×';
-            lesson.appendChild(delBtn);
+            const actionContainer = document.createElement('div');
+            actionContainer.className = 'flex items-center gap-1 absolute top-0 right-0 m-0.5';
 
             const fixedInput = document.createElement('input');
             fixedInput.type = 'checkbox';
-            fixedInput.className = 'fixed-checkbox absolute top-0 left-0 m-0.5';
+            fixedInput.className = 'fixed-checkbox w-4 h-4 rounded border-gray-400 text-blue-600 focus:ring-blue-500';
             fixedInput.dataset.id = ev.id;
             fixedInput.checked = !!ev.fixed;
-            lesson.appendChild(fixedInput);
+            actionContainer.appendChild(fixedInput);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn text-base text-white hover:text-red-300';
+            delBtn.dataset.id = ev.id;
+            delBtn.textContent = '❌';
+            actionContainer.appendChild(delBtn);
+
+            lesson.appendChild(actionContainer);
         }
 
         const wrap = document.createElement('div');
