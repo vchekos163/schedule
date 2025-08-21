@@ -28,7 +28,7 @@
             <button id="add-version" class="grid-head-button">Add version</button>
             <button id="fill-week"
                     class="grid-head-button">
-                Fill version
+                Fill
             </button>
             <button id="optimize" class="grid-head-button">Optimize</button>
             <button id="save" class="grid-head-button hidden">Save</button>
