@@ -20,7 +20,7 @@ class OptimizeTeachers implements ShouldQueue
 
     public string $versionId;
     public string $jobId;
-    public array $dates = [];
+    public array $days = [1, 2, 3, 4, 5];
 
     /**
      * Create a new job instance.
@@ -42,7 +42,7 @@ class OptimizeTeachers implements ShouldQueue
             'cache_key' => "optimize_teachers_{$this->jobId}",
         ]);
 
-        $existingSchedule = Lesson::select('id','date','room_id','subject_id','period','fixed')
+        $existingSchedule = Lesson::select('id','day','room_id','subject_id','period','fixed')
             ->where('version_id', $this->versionId)
             ->whereHas('subject', function ($q) {
                 $q->where('code', '!=', 'IND');
@@ -53,11 +53,6 @@ class OptimizeTeachers implements ShouldQueue
                 'teachers:id,availability,max_lessons,max_days,max_gaps',
             ])
             ->get();
-
-        $uniqueDates = $existingSchedule->pluck('date')->filter()->unique()->sort()->values();
-        foreach ($uniqueDates as $index => $date) {
-            $this->dates[$index + 1] = $date;
-        }
 
         $subjectIds = $existingSchedule->pluck('subject_id')->filter()->unique()->values();
 
@@ -107,8 +102,7 @@ class OptimizeTeachers implements ShouldQueue
             ];
 
             if ($l->fixed) {
-                $dayNumber = array_search($l->date, $this->dates, true);
-                $lesson['day'] = $dayNumber !== false ? $dayNumber : null;
+                $lesson['day'] = $l->day;
                 $lesson['period'] = $l->period;
             }
 
@@ -125,7 +119,7 @@ class OptimizeTeachers implements ShouldQueue
             $scheduler = new ScheduleGenerator(
                 $lessons->toArray(),
                 $rooms->toArray(),
-                $this->dates,
+                $this->days,
                 $students->toArray(),
                 $prompt
             );
@@ -162,7 +156,7 @@ class OptimizeTeachers implements ShouldQueue
                     'title' => '',
                     'color' => '#64748b',
                     'period' => $lessonData['period'],
-                    'date' => $lessonData['date'],
+                    'day' => $lessonData['day'],
                     'reason'   => $lessonData['reason'] ?? '',
                     'room'     => '',
                     'teachers' => '',
@@ -242,7 +236,7 @@ class OptimizeTeachers implements ShouldQueue
             }
 
             if (!empty($ranges)) {
-                $out[] = $dayNumber . ':' . implode(',', $ranges);
+                $out[] = $dayNumber . ': ' . implode(',', $ranges);
             }
         }
 

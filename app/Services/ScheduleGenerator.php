@@ -6,17 +6,17 @@ use Illuminate\Support\Facades\Log;
 
 class ScheduleGenerator
 {
-    protected array $dates;
+    protected array $days;
     protected array $students;
     protected array $rooms;
     protected array $currentSchedule;
     protected string $userPrompt;
 
-    public function __construct(array $currentSchedule = [], array $rooms = [], array $dates = [], array $students = [], string $userPrompt = '')
+    public function __construct(array $currentSchedule = [], array $rooms = [], array $days = [], array $students = [], string $userPrompt = '')
     {
         $this->currentSchedule = $currentSchedule;
         $this->rooms = $rooms;
-        $this->dates = $dates;
+        $this->days = $days;
         $this->students = $students;
         $this->userPrompt = $userPrompt;
     }
@@ -25,7 +25,7 @@ class ScheduleGenerator
     {
 
         $payload = [
-            'days'      => array_keys($this->dates),
+            'days'      => $this->days,
             'lessons'   => $this->currentSchedule,
             'rooms'     => $this->rooms,
             'students'  => $this->students,
@@ -54,12 +54,6 @@ class ScheduleGenerator
                     $lesson['day']    = $fixedLessons[$id]['day'];
                     $lesson['period'] = $fixedLessons[$id]['period'];
                 }
-
-                $day = $lesson['day'] ?? null;
-                if ($day !== null && isset($this->dates[$day])) {
-                    $lesson['date'] = $this->dates[$day];
-                }
-                unset($lesson['day']);
             }
         }
 

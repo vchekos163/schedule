@@ -8,7 +8,6 @@ use App\Jobs\OptimizeTeachers;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Lesson;
@@ -16,6 +15,7 @@ use App\Models\User;
 use App\Models\Room;
 use App\Models\Teacher;
 use App\Models\Subject;
+use App\Models\Version;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -67,7 +67,7 @@ class IndexController extends Controller
 
                 $lesson->reason = $lessonData['reason'];
                 $lesson->room_id = $lessonData['room_id'];
-                $lesson->date = $lessonData['date'];
+                $lesson->day = $lessonData['day'];
                 $lesson->period = $lessonData['period'];
                 $lesson->version_id = $lessonData['version_id'] ?? null;
                 $lesson->save();
@@ -92,8 +92,10 @@ class IndexController extends Controller
 
     public function teachersExport(string $version_id, ?int $teacher_id = null)
     {
-        $periods   = Config::get('periods');
+        $versionName = Version::find($version_id)?->name;
+        $periods     = Config::get('periods');
 
+        // Load lessons (for teacher or all)
         if ($teacher_id) {
             $teacher = Teacher::findOrFail($teacher_id);
             $lessons = $teacher->lessons()
@@ -106,74 +108,73 @@ class IndexController extends Controller
                 ->get();
         }
 
-        $byDate = $lessons->groupBy('date')->map(function ($day) {
+        // group by day → period (assume lessons.day is 1=Mon ... 5=Fri)
+        $byDate = $lessons->groupBy('day')->map(function ($day) {
             return $day->groupBy('period');
         });
 
-        $spreadsheet = new Spreadsheet();
-        $dates = $byDate->keys()->sort()->values();
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $dayNames    = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-        foreach ($dates as $idx => $date) {
-            $sheet = $idx === 0 ? $spreadsheet->getActiveSheet() : $spreadsheet->createSheet($idx);
-            $sheet->setTitle(Carbon::parse($date)->format('D'));
+        // Loop 1–5 instead of 0–4
+        for ($dayNumber = 1; $dayNumber <= 5; $dayNumber++) {
+            $sheetIndex = $dayNumber - 1;
+            $sheet = $dayNumber === 1
+                ? $spreadsheet->getActiveSheet()
+                : $spreadsheet->createSheet($sheetIndex);
+
+            $sheet->setTitle($dayNames[$sheetIndex]);
 
             $row = 1;
             foreach ($periods as $p => $time) {
-                // Column A: period label (and optionally time)
+                // Column A = period label
                 $sheet->setCellValue("A{$row}", "Lesson {$p}");
-                $startRow = $row + 2; // content starts 2 rows below the period label
+                $startRow = $row + 2;
 
-                /** @var \Illuminate\Support\Collection $periodLessons */
-                $periodLessons = $byDate[$date][$p] ?? collect();
+                // Lessons for this day + period
+                $periodLessons = $byDate[$dayNumber][$p] ?? collect();
 
-                // Place each lesson in its own column starting at column B (index 2)
-                $colIndex = 2; // B
+                $colIndex  = 2; // start from B
                 $maxHeight = 0;
 
                 foreach ($periodLessons as $lesson) {
-                    $col = Coordinate::stringFromColumnIndex($colIndex);
+                    $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
 
-                    // Subject name and code
+                    // Subject info
                     $sheet->setCellValue("{$col}{$startRow}", $lesson->subject->name ?? '');
                     $sheet->setCellValue("{$col}" . ($startRow + 1), $lesson->subject->code ?? '');
 
-                    // Students under subject/code
+                    // Students
                     $r = $startRow + 2;
                     foreach ($lesson->users as $student) {
                         $sheet->setCellValue("{$col}{$r}", $student->name . ($student->class ? " ({$student->class})" : ''));
                         $r++;
                     }
 
-                    // Height of this lesson block = 2 header rows + students
                     $lessonHeight = 2 + $lesson->users->count();
-                    if ($lessonHeight > $maxHeight) {
-                        $maxHeight = $lessonHeight;
-                    }
+                    $maxHeight = max($maxHeight, $lessonHeight);
 
-                    // Next lesson goes in the next column
                     $colIndex++;
                 }
 
-                // If no lessons, keep a small empty block height
                 if ($maxHeight === 0) {
                     $maxHeight = 1;
                 }
 
-                // Optional: autosize the columns we used this period
+                // Autosize columns used this period
                 for ($c = 2; $c < $colIndex; $c++) {
-                    $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+                    $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
                 }
-                // Also autosize column A
                 $sheet->getColumnDimension('A')->setAutoSize(true);
 
-                // Advance to the next period block: max height + top label(2) + spacer(1)
+                // Move down by block height + label + spacer
                 $row = $startRow + $maxHeight + 1;
             }
         }
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new Xlsx($spreadsheet);
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
             $writer->save('php://output');
-        }, "schedule_{$version_id}.xlsx");
+        }, "schedule_{$versionName}.xlsx");
     }
 }
