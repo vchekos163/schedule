@@ -30,6 +30,7 @@
             <button id="optimize" class="grid-head-button">Optimize</button>
             <button id="save" class="grid-head-button hidden">Save</button>
             <button id="undo" class="grid-head-button hidden">Undo</button>
+            <button id="export" class="grid-head-button">Export</button>
 
             <div id="optimize-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-4">
@@ -81,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('schedule-table');
     const subjectPalette = document.getElementById('subject-palette');
     let currentMonday = startOfWeek(new Date());
+    let start = formatYMD(currentMonday);
     let dragType = null;
     const periods = @json($periods);
     const timeToPeriod = {};
@@ -112,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('save').classList.add('hidden');
         document.getElementById('undo').classList.add('hidden');
 
-        const start = formatYMD(currentMonday);
         document.getElementById('week-label').textContent = start;
 
         fetch(`/schedule/grid/teachersData/teacher_id/${teacherId}/start/${start}`)
@@ -206,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             actionContainer.appendChild(fixedInput);
 
             const delBtn = document.createElement('button');
-            delBtn.className = 'delete-btn text-base text-white hover:text-red-300';
+            delBtn.className = 'delete-btn text-sm text-white hover:text-red-300';
             delBtn.dataset.id = ev.id;
             delBtn.textContent = '❌';
             actionContainer.appendChild(delBtn);
@@ -427,8 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prev-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()-7); loadWeek(); });
     document.getElementById('next-week').addEventListener('click',()=>{ currentMonday.setDate(currentMonday.getDate()+7); loadWeek(); });
     document.getElementById('fill-week').addEventListener('click',()=>{
-        const monday = formatYMD(currentMonday);
-        window.location.href = `/schedule/lesson/autoFillTeacher/teacher_id/${teacherId}/start/${monday}`;
+        window.location.href = `/schedule/lesson/autoFillTeacher/teacher_id/${teacherId}/start/${start}`;
     });
 
     document.getElementById('optimize').addEventListener('click', () => {
@@ -463,10 +463,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('undo').classList.add('hidden');
     });
 
+    document.getElementById('export').addEventListener('click', () => {
+        window.location.href = `/schedule/index/teachersExport/start/${start}/teacher_id/${teacherId}`;
+    });
+
     loadWeek();
 
     function runOptimize(promptText) {
-        const monday = formatYMD(currentMonday);
         const spinner = document.getElementById('spinner');
         spinner.classList.remove('hidden');
         originalEvents = getCurrentEvents();
@@ -479,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'X-CSRF-TOKEN': csrfToken(),
                 'X-Requested-With': 'XMLHttpRequest',
             },
-            body: JSON.stringify({ start: monday, prompt: promptText })
+            body: JSON.stringify({ start: start, prompt: promptText })
         })
             .then(res => res.json())
             .then(data => {
