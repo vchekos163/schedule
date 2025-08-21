@@ -25,6 +25,7 @@
                     <option value="{{ $v->id }}">{{ $v->name }}</option>
                 @endforeach
             </select>
+            <button id="add-version" class="grid-head-button">Add version</button>
             <button id="fill-week"
                     class="grid-head-button">
                 Fill version
@@ -84,6 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('schedule-table');
     const subjectPalette = document.getElementById('subject-palette');
     const versionSelect = document.getElementById('version-select');
+    const addVersionBtn = document.getElementById('add-version');
+    const params = new URLSearchParams(window.location.search);
+    const urlVersionId = params.get('version_id');
+    if (urlVersionId) {
+        versionSelect.value = urlVersionId;
+    }
     let currentVersion = versionSelect.value;
     let dragType = null;
     const periods = @json($periods);
@@ -100,6 +107,24 @@ document.addEventListener('DOMContentLoaded', () => {
     versionSelect.addEventListener('change', () => {
         currentVersion = versionSelect.value;
         loadVersion();
+    });
+
+    addVersionBtn.addEventListener('click', () => {
+        const name = prompt('Enter version name');
+        if (!name) return;
+        fetch(`/schedule/version/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+            },
+            body: JSON.stringify({ name })
+        })
+            .then(r => r.json())
+            .then(data => {
+                let base = teacherId ? `/schedule/grid/teachers/teacher_id/${teacherId}` : '/schedule/grid/teachers';
+                window.location.href = `${base}?version_id=${data.id}`;
+            });
     });
 
     function loadVersion(){
