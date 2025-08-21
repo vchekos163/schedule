@@ -44,6 +44,7 @@ class LessonController extends Controller
             'title' => $lesson->subject->code,
             'color' => $lesson->subject->color,
             'room' => $room->code,
+            'fixed' => $lesson->fixed,
             'teachers' => $subject->teachers
                 ->map(fn($teacher) => $teacher->user->name)
                 ->join(', '),
@@ -83,6 +84,7 @@ class LessonController extends Controller
                 'title'  => $lesson->subject->code,
                 'color'  => $lesson->subject->color,
                 'room'   => $room->code,
+                'fixed'  => $lesson->fixed,
                 'teachers' => $subject->teachers
                     ->map(fn($teacher) => $teacher->user->name)
                     ->join(', '),
@@ -116,6 +118,7 @@ class LessonController extends Controller
             'date'   => $lesson->date,
             'period' => $lesson->period,
             'reason' => $lesson->reason,
+            'fixed'  => $lesson->fixed,
         ]);
     }
 
@@ -199,6 +202,18 @@ class LessonController extends Controller
         return response()->json([
             'status' => 'success',
             'lesson' => $lesson,
+        ]);
+    }
+
+    public function setFixed(int $lesson_id, int $fixed)
+    {
+        $lesson = Lesson::findOrFail($lesson_id);
+        $lesson->fixed = (bool) $fixed;
+        $lesson->save();
+
+        return response()->json([
+            'status' => 'success',
+            'fixed' => $lesson->fixed,
         ]);
     }
 
