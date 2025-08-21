@@ -20,7 +20,7 @@
     {{-- Right: Grid --}}
     <div class="flex-1">
         <div class="flex items-center justify-center mb-2 gap-2">
-            <select id="version-select" class="border rounded px-2 py-1">
+            <select id="version-select" class="border rounded px-2 py-1" style="padding-right:2rem;">
                 @foreach($versions as $v)
                     <option value="{{ $v->id }}">{{ $v->name }}</option>
                 @endforeach
@@ -33,7 +33,7 @@
             <button id="save" class="grid-head-button hidden">Save</button>
             <button id="undo" class="grid-head-button hidden">Undo</button>
             <button id="export" class="grid-head-button">Export</button>
-            
+
             <div id="optimize-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-4">
                     <h2 class="text-lg font-semibold mb-3">Enter prompt for optimization</h2>

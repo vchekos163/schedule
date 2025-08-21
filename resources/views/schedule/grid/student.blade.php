@@ -22,7 +22,7 @@
 
     <div class="flex-1">
         <div class="flex items-center justify-center mb-2 gap-2">
-            <select id="version-select" class="border rounded px-2 py-1">
+            <select id="version-select" class="border rounded px-2 py-1" style="padding-right:2rem;">
                 @foreach($versions as $v)
                     <option value="{{ $v->id }}">{{ $v->name }}</option>
                 @endforeach
