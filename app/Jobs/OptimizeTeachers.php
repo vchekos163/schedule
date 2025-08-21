@@ -60,7 +60,7 @@ class OptimizeTeachers implements ShouldQueue
             $this->dates[$this->dayShort[strtolower($date->format('l'))]] = $date->toDateString();
         }
 
-        $existingSchedule = Lesson::select('id','date','room_id','subject_id')
+        $existingSchedule = Lesson::select('id','date','room_id','subject_id','period','fixed')
             ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->whereHas('subject', function ($q) {
                 $q->where('code', '!=', 'IND');
@@ -90,10 +90,10 @@ class OptimizeTeachers implements ShouldQueue
             })->values();
 
         $lessons = $existingSchedule->map(function ($l) {
-            return [
+            $lesson = [
                 'id'          => $l->id,
-                'code' => $l->subject->code,
-                'subject_id'    => $l->subject->id,
+                'code'        => $l->subject->code,
+                'subject_id'  => $l->subject->id,
                 'priority'    => optional($l->subject)->priority,
                 'teachers'    => $l->teachers->map(function ($t) {
                     $return = [
@@ -118,6 +118,13 @@ class OptimizeTeachers implements ShouldQueue
                         ->all()
                     : [],
             ];
+
+            if ($l->fixed) {
+                $lesson['weekday'] = $this->dayShort[strtolower(Carbon::parse($l->date)->format('l'))] ?? null;
+                $lesson['period'] = $l->period;
+            }
+
+            return $lesson;
         })->values();
 
         $rooms = Room::select('id', 'capacity')->get();
