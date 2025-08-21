@@ -3,9 +3,11 @@
 @section('content')
 <div class="container mx-auto p-4 overflow-x-auto max-w-full">
     <div class="flex items-center justify-center mb-4 gap-2">
-        <a href="{{ url('/schedule/students/index/start/' . $prevWeek) }}" class="px-2 py-1 bg-gray-200 rounded">Prev</a>
-        <span class="font-semibold">{{ $startDate->toDateString() }}</span>
-        <a href="{{ url('/schedule/students/index/start/' . $nextWeek) }}" class="px-2 py-1 bg-gray-200 rounded">Next</a>
+        <select id="version-select" class="border rounded px-2 py-1" style="padding-right:2rem;">
+            @foreach($versions as $v)
+                <option value="{{ $v->id }}" {{ $v->id == $versionId ? 'selected' : '' }}>{{ $v->name }}</option>
+            @endforeach
+        </select>
         <button id="assign" class="grid-head-button">Assign</button>
         <button id="unassign" class="grid-head-button">Unassign Excess</button>
     </div>
@@ -36,8 +38,7 @@
                     @foreach($days as $dayNumber => $dayLabel)
                         @for($period = 1; $period <= count($periods); $period++)
                             @php
-                                $date    = $startDate->copy()->addDays($dayNumber - 1)->toDateString();
-                                $lessons = $studentLessons[$student->id][$date][$period] ?? [];
+                                $lessons = $studentLessons[$student->id][$dayNumber][$period] ?? [];
                             @endphp
                             <td class="border px-1 py-1 text-center">
                                 @foreach($lessons as $lesson)
@@ -58,11 +59,18 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const versionSelect = document.getElementById('version-select');
+    let currentVersion = versionSelect.value;
+
+    versionSelect.addEventListener('change', () => {
+        currentVersion = versionSelect.value;
+        window.location.href = `/schedule/students/index/version_id/${currentVersion}`;
+    });
+
     const assignBtn = document.getElementById('assign');
     if (assignBtn) {
         assignBtn.addEventListener('click', () => {
-            const monday = "{{ $startDate->toDateString() }}";
-            fetch(`/schedule/lesson/assignStudentLessons/start/${monday}`)
+            fetch(`/schedule/lesson/assignStudentLessons/version_id/${currentVersion}`)
                 .then(() => window.location.reload());
         });
     }
@@ -70,8 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const unassignBtn = document.getElementById('unassign');
     if (unassignBtn) {
         unassignBtn.addEventListener('click', () => {
-            const monday = "{{ $startDate->toDateString() }}";
-            fetch(`/schedule/lesson/unassignStudentLessons/start/${monday}`)
+            fetch(`/schedule/lesson/unassignStudentLessons/version_id/${currentVersion}`)
                 .then(() => window.location.reload());
         });
     }
