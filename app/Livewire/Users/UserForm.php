@@ -3,6 +3,7 @@
 namespace App\Livewire\Users;
 
 use App\Models\User;
+use App\Models\Teacher;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Livewire\Component;
@@ -99,6 +100,10 @@ class UserForm extends Component implements HasForms
         // Привязка ролей
         $roleNames = Role::whereIn('id', $data['roles'] ?? [])->pluck('name')->toArray();
         $this->user->syncRoles($roleNames);
+
+        if ($this->user->hasRole('teacher')) {
+            Teacher::firstOrCreate(['user_id' => $this->user->id]);
+        }
 
         session()->flash('message', 'User successfully created.');
         redirect('/admin/users');
