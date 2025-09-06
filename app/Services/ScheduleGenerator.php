@@ -71,7 +71,7 @@ Given the following data:
 First, rearrange ALL {$lessonCount} lessons and assign rooms:
 - Use periods 1-7 per day
 - Do not change the day or period for lessons that already specify them
-- If a lesson subject occurs only once in the week, make that day+period slot exclusive — no other lessons in that slot.
+- “MM” lessons are flexible (any teacher’s MM acceptable), and can students take multiple on the same day
 - Respect teacher availability and max gaps
 - If max_days stated you can choose any [max_days] days of the week
 - Choose rooms that match capacity and features so they are not overfilled

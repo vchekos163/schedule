@@ -21,6 +21,13 @@ class OptimizeTeachers implements ShouldQueue
     public string $versionId;
     public string $jobId;
     public array $days = [1, 2, 3, 4, 5];
+    private array $dayMap = [
+        'monday'    => 1,
+        'tuesday'   => 2,
+        'wednesday' => 3,
+        'thursday'  => 4,
+        'friday'    => 5,
+    ];
 
     /**
      * Create a new job instance.
@@ -190,8 +197,8 @@ class OptimizeTeachers implements ShouldQueue
         if (!is_array($availability)) return [];
 
         $out = [];
-        foreach ($availability as $dayNumber => $slots) {
-            $dayNumber = (int) $dayNumber;
+        foreach ($availability as $day => $slots) {
+            $dayNumber = $this->dayMap[$day];
             if ($dayNumber < 1 || $dayNumber > 5) continue;
 
             if (!is_array($slots)) continue;
